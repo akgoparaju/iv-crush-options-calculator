@@ -1,0 +1,13 @@
+# Core dependencies
+FreeSimpleGUI
+yfinance
+requests
+pandas
+numpy
+scipy
+
+# Python < 3.9 timezone support (optional)
+backports.zoneinfo; python_version < "3.9"
+
+# Alternative timezone support fallback
+pytz
