@@ -40,9 +40,20 @@ logs/
 
 # Environment variables
 .env
+.env.*
+
+# Private Documentation (excluded from public repo)
+CLAUDE.md
+GEMINI.md
+
+# Documentation folder (contains private development notes)
+docs/
 
 # Portfolio data (contains personal trading data)
 .portfolio_positions.json
+
+# Cache files
+.price_cache.json
 
 # OS generated files
 .DS_Store

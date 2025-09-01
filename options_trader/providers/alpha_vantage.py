@@ -136,6 +136,7 @@ class AlphaVantageProvider(PriceProvider, EarningsProvider):
         
         try:
             data = self._make_request(function="EARNINGS", symbol=symbol)
+            logger.debug(f"Raw earnings data for {symbol} from Alpha Vantage: {data}")
             
             # Look in quarterlyEarnings for upcoming events
             quarterly = data.get("quarterlyEarnings", [])

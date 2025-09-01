@@ -91,6 +91,13 @@ except ImportError as e:
     HAS_GUI = False
     run_gui = None
 
+try:
+    from options_trader.core.cli_formatter import create_enhanced_cli_formatter
+    HAS_ENHANCED_CLI = True
+except ImportError as e:
+    logger.warning(f"Enhanced CLI formatter not available: {e}")
+    HAS_ENHANCED_CLI = False
+
 
 def print_version():
     """Print version information."""
@@ -102,9 +109,10 @@ def print_version():
 def analyze_symbol_cli(symbol: str, expirations: int = 2, demo: bool = False, 
                       earnings: bool = False, trade_construction: bool = False,
                       position_sizing: bool = False, trading_decision: bool = False,
-                      account_size: float = None, risk_per_trade: float = None) -> None:
+                      structure: str = None, account_size: float = None, 
+                      risk_per_trade: float = None) -> None:
     """
-    Analyze a symbol in command-line mode.
+    Analyze a symbol in command-line mode using enhanced professional formatting.
     
     Args:
         symbol: Stock symbol to analyze
@@ -114,17 +122,12 @@ def analyze_symbol_cli(symbol: str, expirations: int = 2, demo: bool = False,
         trade_construction: Include trade construction & P&L analysis (Module 2)
         position_sizing: Include position sizing & risk management (Module 3)
         trading_decision: Include trading decision automation (Module 4)
+        structure: Trade structure preference ('calendar', 'straddle', 'auto')
         account_size: Override account size for position sizing
         risk_per_trade: Override risk per trade percentage
     """
-    print(f"\\nAnalyzing {symbol.upper()}...")
-    print(f"Expirations: {expirations}, Demo: {demo}, Earnings: {earnings}")
-    print(f"Modules: Trade Construction: {trade_construction}, Position Sizing: {position_sizing}, Trading Decision: {trading_decision}")
-    if position_sizing:
-        print(f"Account Settings: Size=${account_size or 'from .env'}, Risk per Trade={risk_per_trade or 'from .env'}")
-    print("-" * 60)
-    
     try:
+        # Run the analysis
         result = analyze_symbol(
             symbol=symbol,
             expirations_to_check=expirations,
@@ -133,252 +136,175 @@ def analyze_symbol_cli(symbol: str, expirations: int = 2, demo: bool = False,
             include_trade_construction=trade_construction,
             include_position_sizing=position_sizing,
             include_trading_decision=trading_decision,
+            trade_structure=structure,
             account_size=account_size,
             risk_per_trade=risk_per_trade
         )
         
         if "error" in result:
-            print(f"ERROR: {result['error']}")
+            print(f"❌ ANALYSIS ERROR: {result['error']}")
+            logger.error(f"Analysis error for {symbol}: {result['error']}")
             return
         
-        # Display basic info
-        print(f"Symbol: {result['symbol']}")
-        print(f"Price: ${result['price']:.2f} (Source: {result['price_source']})")
-        print()
-        
-        # Display calendar analysis
-        calendar = result.get("calendar_spread_analysis", {})
-        if "error" not in calendar:
-            recommendation = calendar.get("recommendation", "Unknown")
-            signal_count = calendar.get("signal_count", 0)
-            
-            print("CALENDAR SPREAD ANALYSIS:")
-            print(f"Recommendation: {recommendation}")
-            print(f"Signals: {signal_count}/3")
-            
-            if calendar.get("term_structure_slope") is not None:
-                slope = calendar["term_structure_slope"]
-                print(f"Term Structure Slope: {slope:.6f} ({'✓' if calendar.get('ts_slope_signal') else '✗'})")
-            
-            if calendar.get("iv_rv_ratio") is not None:
-                ratio = calendar["iv_rv_ratio"]
-                print(f"IV/RV Ratio: {ratio:.2f} ({'✓' if calendar.get('iv_rv_signal') else '✗'})")
-            
-            if calendar.get("avg_volume_30d") is not None:
-                volume = calendar["avg_volume_30d"]
-                print(f"Avg Volume (30d): {volume:,.0f} ({'✓' if calendar.get('volume_signal') else '✗'})")
-            
-            if calendar.get("expected_move_pct") is not None:
-                move = calendar["expected_move_pct"]
-                print(f"Expected Move: {move:.1f}%")
-        
-        # Display earnings analysis if requested
-        if earnings and "earnings_analysis" in result:
-            earnings_data = result["earnings_analysis"]
-            print("\\nEARNINGS ANALYSIS:")
-            
-            if "error" not in earnings_data:
-                event = earnings_data.get("earnings_event", {})
-                print(f"Next Earnings: {event.get('date', 'Unknown')} {event.get('timing', 'Unknown')}")
-                print(f"Confirmed: {'Yes' if event.get('confirmed') else 'No'}")
+        # Use enhanced formatter if available, otherwise fallback to simple output
+        if HAS_ENHANCED_CLI:
+            try:
+                # Create enhanced CLI formatter with logging enabled
+                formatter = create_enhanced_cli_formatter(symbol=symbol, log_cli_output=True)
                 
-                windows = earnings_data.get("trading_windows", {})
-                print(f"Entry Window: {windows.get('entry_start', 'Unknown')} to {windows.get('entry_end', 'Unknown')}")
-                print(f"Exit Window: {windows.get('exit_start', 'Unknown')} to {windows.get('exit_end', 'Unknown')}")
+                # Format analysis header
+                modules_enabled = {
+                    "earnings": earnings,
+                    "trade_construction": trade_construction,
+                    "position_sizing": position_sizing,
+                    "trading_decision": trading_decision
+                }
                 
-                time_to_entry = earnings_data.get("time_to_entry")
-                if time_to_entry:
-                    print(f"Time to Entry: {time_to_entry}")
+                formatter.format_analysis_header(
+                    symbol=result['symbol'],
+                    price=result['price'],
+                    price_source=result['price_source'],
+                    modules_enabled=modules_enabled,
+                    expirations=expirations,
+                    demo=demo
+                )
                 
-                warnings = earnings_data.get("warnings", [])
-                if warnings:
-                    print("Warnings:")
-                    for warning in warnings:
-                        print(f"  ⚠️  {warning}")
-            else:
-                print(f"Earnings Error: {earnings_data['error']}")
-        
-        # Display trade construction analysis if requested
-        if trade_construction and "trade_construction" in result:
-            trade_data = result["trade_construction"]
-            print("\\nTRADE CONSTRUCTION & P&L ANALYSIS:")
-            
-            if "error" not in trade_data:
-                trade = trade_data.get("calendar_trade", {})
-                quality = trade_data.get("quality_assessment", {})
-                greeks = trade_data.get("greeks_analysis", {})
-                pnl = trade_data.get("pnl_analysis", {})
+                # Format calendar analysis (always available)
+                calendar_data = result.get("calendar_spread_analysis", {})
+                formatter.format_calendar_analysis(calendar_data)
                 
-                # Basic trade info
-                print(f"Calendar Trade: {trade.get('trade_type', 'Unknown').replace('_', ' ').title()}")
-                print(f"Strike: ${trade.get('strike', 0):.2f}")
-                print(f"Front Exp: {trade.get('front_expiration', 'Unknown')}")
-                print(f"Back Exp: {trade.get('back_expiration', 'Unknown')}")
-                print(f"Net Debit: ${trade.get('net_debit', 0):.2f}")
-                print(f"Max Loss: ${trade.get('max_loss', 0):.2f}")
+                # Format earnings analysis if requested
+                if earnings and "earnings_analysis" in result:
+                    earnings_data = result["earnings_analysis"]
+                    formatter.format_earnings_analysis(earnings_data)
                 
-                # Breakeven range
-                breakeven = trade.get('breakeven_range', (0, 0))
-                print(f"Breakeven Range: ${breakeven[0]:.2f} - ${breakeven[1]:.2f}")
+                # Format trade construction analysis if requested
+                if trade_construction and "trade_construction" in result:
+                    trade_data = result["trade_construction"]
+                    formatter.format_trade_structures_comparison(trade_data)
                 
-                # Quality score
-                quality_score = quality.get('overall_score', 0)
-                print(f"Quality Score: {quality_score:.1f}/100")
+                # Format position sizing analysis if requested
+                if position_sizing and "position_sizing" in result:
+                    position_data = result["position_sizing"]
+                    formatter.format_position_sizing(position_data)
                 
-                # Greeks summary
-                if greeks:
-                    print(f"Net Delta: {greeks.get('net_delta', 0):.3f}")
-                    print(f"Daily Theta: ${greeks.get('theta_dollars', 0):.2f}")
-                    print(f"Vega Exposure: ${greeks.get('vega_dollars', 0):.2f}")
+                # Format trading decision analysis if requested
+                if trading_decision and "trading_decision" in result:
+                    decision_data = result["trading_decision"]
+                    formatter.format_trading_decision(decision_data)
                 
-                # P&L summary
-                if pnl:
-                    stats = pnl.get('summary_stats', {})
-                    print(f"Max Profit: ${stats.get('max_profit', 0):.2f}")
-                    print(f"Win Rate: {stats.get('win_rate', 0)*100:.1f}%" if 'win_rate' in stats else "Win Rate: N/A")
-                    print(f"Scenarios: {pnl.get('scenario_count', 0)}")
-                    
-                    crush_params = pnl.get('iv_crush_parameters', {})
-                    print(f"IV Crush Model: {crush_params.get('liquidity_tier', 'unknown')} liquidity")
+                # Format footer
+                formatter.format_analysis_footer()
                 
-                # Validation
-                if not trade.get('is_valid', True):
-                    print("⚠️  Trade Validation Warnings:")
-                    for error in trade.get('validation_errors', []):
-                        print(f"  • {error}")
-                        
-            else:
-                print(f"Trade Construction Error: {trade_data['error']}")
-        
-        # Display position sizing analysis if requested
-        if position_sizing and "position_sizing" in result:
-            position_data = result["position_sizing"]
-            print("\\nPOSITION SIZING & RISK MANAGEMENT:")
-            
-            if "error" not in position_data:
-                # Recommended position
-                recommended = position_data.get("recommended_position", {})
-                kelly_analysis = position_data.get("kelly_analysis", {})
-                risk_assessment = position_data.get("risk_assessment", {})
-                account_summary = position_data.get("account_summary", {})
+            except Exception as e:
+                logger.error(f"Enhanced CLI formatting failed: {e}")
+                print(f"⚠️  Enhanced formatting failed: {e}")
+                print("Falling back to basic output format...")
+                _format_basic_output(result, symbol, earnings, trade_construction, position_sizing, trading_decision)
                 
-                print(f"Recommended Position: {recommended.get('symbol', 'Unknown')} {recommended.get('contracts', 0)} contracts")
-                if recommended.get('original_contracts', 0) != recommended.get('contracts', 0):
-                    print(f"  (Adjusted from {recommended.get('original_contracts', 0)} contracts: {recommended.get('adjustment_reason', 'Unknown reason')})")
-                
-                print(f"Capital Required: ${recommended.get('capital_required', 0):,.0f}")
-                
-                # Kelly analysis
-                print(f"Kelly Fraction: {kelly_analysis.get('kelly_fraction', 0):.4f}")
-                print(f"Signal Multiplier: {kelly_analysis.get('signal_multiplier', 0):.2f}x ({kelly_analysis.get('signal_strength', 0)} signals)")
-                print(f"Risk-Adjusted Kelly: {kelly_analysis.get('risk_adjusted_kelly', 0):.4f}")
-                print(f"Account Risk: {kelly_analysis.get('account_risk_pct', 0):.1f}%")
-                
-                # Account summary
-                print(f"Account Size: ${account_summary.get('total_capital', 0):,.0f}")
-                print(f"Available Capital: ${account_summary.get('available_capital', 0):,.0f}")
-                print(f"Portfolio Utilization: {account_summary.get('utilization_percentage', 0):.1f}%")
-                
-                # Risk assessment
-                compliance_status = "✅ COMPLIANT" if risk_assessment.get("is_compliant", False) else "❌ NON-COMPLIANT"
-                print(f"Risk Compliance: {compliance_status} (Score: {risk_assessment.get('risk_score', 0):.1f}/100)")
-                
-                # Violations and warnings
-                violations = risk_assessment.get("violations", [])
-                if violations:
-                    print("⚠️  Risk Violations:")
-                    for violation in violations:
-                        print(f"  • {violation}")
-                
-                warnings = risk_assessment.get("warnings", [])
-                if warnings:
-                    print("⚠️  Risk Warnings:")
-                    for warning in warnings:
-                        print(f"  • {warning}")
-                
-                recommendations = risk_assessment.get("recommendations", [])
-                if recommendations:
-                    print("💡 Recommendations:")
-                    for recommendation in recommendations:
-                        print(f"  • {recommendation}")
-                
-                # Portfolio impact
-                portfolio_impact = position_data.get("portfolio_impact", {})
-                if portfolio_impact:
-                    print(f"Portfolio Impact: Δ{portfolio_impact.get('new_position_delta', 0):.3f}, "
-                          f"θ${portfolio_impact.get('estimated_theta_impact', 0):.0f}/day")
-                
-                # Validation errors
-                validation_errors = kelly_analysis.get("validation_errors", [])
-                if validation_errors:
-                    print("⚠️  Position Sizing Warnings:")
-                    for error in validation_errors:
-                        print(f"  • {error}")
-                        
-            else:
-                print(f"Position Sizing Error: {position_data['error']}")
-        
-        # Display trading decision analysis if requested
-        if trading_decision and "trading_decision" in result:
-            decision_data = result["trading_decision"]
-            print("\\nTRADING DECISION AUTOMATION:")
-            
-            if "error" not in decision_data:
-                decision = decision_data.get("decision", "UNKNOWN")
-                confidence = decision_data.get("confidence", 0)
-                expected_return = decision_data.get("expected_return", 0)
-                
-                # Main decision with visual indicator
-                decision_icon = {"EXECUTE": "🚀", "PASS": "❌", "CONSIDER": "🤔"}.get(decision, "❓")
-                print(f"Decision: {decision_icon} {decision}")
-                print(f"Confidence: {confidence:.1%}")
-                print(f"Expected Return: {expected_return:.1%}")
-                
-                # Key metrics
-                risk_reward = decision_data.get("risk_reward_ratio", 0)
-                signal_strength = decision_data.get("signal_strength", 0)
-                liquidity_score = decision_data.get("liquidity_score", 0)
-                win_probability = decision_data.get("win_probability", 0)
-                
-                print(f"Risk/Reward Ratio: {risk_reward:.2f}")
-                print(f"Signal Strength: {signal_strength:.2f}/3")
-                print(f"Liquidity Score: {liquidity_score:.2f}")
-                print(f"Win Probability: {win_probability:.1%}")
-                
-                # Reasoning
-                reasoning = decision_data.get("reasoning", [])
-                if reasoning:
-                    if isinstance(reasoning, list):
-                        reasoning_text = "; ".join(reasoning)
-                    else:
-                        reasoning_text = str(reasoning)
-                    print(f"Reasoning: {reasoning_text}")
-                
-                # Additional metrics
-                quality_score = decision_data.get("quality_score", 0)
-                position_size = decision_data.get("position_size", 0)
-                is_valid = decision_data.get("is_valid", True)
-                
-                print(f"Quality Score: {quality_score:.1f}/100")
-                print(f"Position Size: {position_size} contracts")
-                print(f"Valid Decision: {'Yes' if is_valid else 'No'}")
-                
-                # Validation errors
-                validation_errors = decision_data.get("validation_errors", [])
-                if validation_errors:
-                    print("⚠️  Decision Warnings:")
-                    for error in validation_errors:
-                        print(f"  • {error}")
-                        
-            else:
-                print(f"Trading Decision Error: {decision_data['error']}")
-        
-        print()
+        else:
+            # Fallback to basic output if enhanced formatter not available
+            logger.warning("Enhanced CLI formatter not available, using basic output")
+            _format_basic_output(result, symbol, earnings, trade_construction, position_sizing, trading_decision)
         
     except Exception as e:
         logger.error(f"Command-line analysis failed: {e}")
-        print(f"Analysis failed: {e}")
+        print(f"❌ Analysis failed: {e}")
         print("Check the log file for more details.")
+
+
+def _format_basic_output(result: dict, symbol: str, earnings: bool, trade_construction: bool, 
+                        position_sizing: bool, trading_decision: bool) -> None:
+    """
+    Fallback basic output formatting when enhanced formatter is not available.
+    
+    Args:
+        result: Analysis result dictionary
+        symbol: Stock symbol
+        earnings: Whether earnings analysis was requested
+        trade_construction: Whether trade construction was requested
+        position_sizing: Whether position sizing was requested
+        trading_decision: Whether trading decision was requested
+    """
+    print(f"\n{'='*60}")
+    print(f" BASIC OPTIONS ANALYSIS - {symbol.upper()}")
+    print(f"{'='*60}")
+    
+    # Basic symbol info
+    print(f"Symbol: {result['symbol']}")
+    print(f"Price: ${result['price']:.2f} (Source: {result['price_source']})")
+    
+    # Calendar analysis
+    calendar = result.get("calendar_spread_analysis", {})
+    if "error" not in calendar:
+        print(f"\n📊 CALENDAR ANALYSIS:")
+        recommendation = calendar.get("recommendation", "Unknown")
+        signal_count = calendar.get("signal_count", 0)
+        print(f"  Recommendation: {recommendation}")
+        print(f"  Signal Strength: {signal_count}/3")
+        
+        if calendar.get("term_structure_slope") is not None:
+            slope = calendar["term_structure_slope"]
+            print(f"  Term Structure: {slope:.6f} ({'✓' if calendar.get('ts_slope_signal') else '✗'})")
+        
+        if calendar.get("iv_rv_ratio") is not None:
+            ratio = calendar["iv_rv_ratio"]
+            print(f"  IV/RV Ratio: {ratio:.2f} ({'✓' if calendar.get('iv_rv_signal') else '✗'})")
+        
+        if calendar.get("avg_volume_30d") is not None:
+            volume = calendar["avg_volume_30d"]
+            print(f"  Volume (30d): {volume:,.0f} ({'✓' if calendar.get('volume_signal') else '✗'})")
+    
+    # Earnings analysis
+    if earnings and "earnings_analysis" in result:
+        earnings_data = result["earnings_analysis"]
+        print(f"\n📅 EARNINGS ANALYSIS:")
+        if "error" in earnings_data:
+            print(f"  Error: {earnings_data['error']}")
+        else:
+            event = earnings_data.get("earnings_event", {})
+            if event:
+                print(f"  Next Earnings: {event.get('date', 'Unknown')}")
+    
+    # Trade construction
+    if trade_construction and "trade_construction" in result:
+        trade_data = result["trade_construction"]
+        print(f"\n🔧 TRADE CONSTRUCTION:")
+        if "error" in trade_data:
+            print(f"  Error: {trade_data['error']}")
+        else:
+            trade = trade_data.get("calendar_trade", {})
+            quality = trade_data.get("quality_assessment", {})
+            print(f"  Strike: ${trade.get('strike', 0):.2f}")
+            print(f"  Net Debit: ${trade.get('net_debit', 0):.2f}")
+            print(f"  Quality Score: {quality.get('overall_score', 0):.1f}/100")
+    
+    # Position sizing
+    if position_sizing and "position_sizing" in result:
+        position_data = result["position_sizing"]
+        print(f"\n💰 POSITION SIZING:")
+        if "error" in position_data:
+            print(f"  Error: {position_data['error']}")
+        else:
+            recommended = position_data.get("recommended_position", {})
+            print(f"  Position: {recommended.get('contracts', 0)} contracts")
+            print(f"  Capital: ${recommended.get('capital_required', 0):,.0f}")
+    
+    # Trading decision
+    if trading_decision and "trading_decision" in result:
+        decision_data = result["trading_decision"]
+        print(f"\n🚀 TRADING DECISION:")
+        if "error" in decision_data:
+            print(f"  Error: {decision_data['error']}")
+        else:
+            decision = decision_data.get("decision", "UNKNOWN")
+            confidence = decision_data.get("original_confidence", decision_data.get("confidence", 0))
+            print(f"  Decision: {decision}")
+            print(f"  Confidence: {confidence:.1%}" if confidence else "  Confidence: N/A")
+    
+    print(f"\n{'='*60}")
+    print("⚠️  FOR EDUCATIONAL PURPOSES ONLY")
+    print(f"{'='*60}\n")
 
 
 def main():
@@ -396,6 +322,8 @@ def main():
     parser.add_argument("--trade-construction", action="store_true", help="Include trade construction & P&L analysis (Module 2)")
     parser.add_argument("--position-sizing", action="store_true", help="Include position sizing & risk management (Module 3)")
     parser.add_argument("--trading-decision", action="store_true", help="Include trading decision automation (Module 4)")
+    parser.add_argument("--structure", type=str, choices=["calendar", "straddle", "auto"], 
+                       help="Trade structure: calendar (default), straddle, or auto-select")
     parser.add_argument("--account-size", type=float, help="Override account size for position sizing calculations")
     parser.add_argument("--risk-per-trade", type=float, help="Override risk per trade percentage (e.g., 0.02 for 2 percent)")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
@@ -432,6 +360,7 @@ def main():
                 trade_construction=getattr(args, 'trade_construction', False),
                 position_sizing=getattr(args, 'position_sizing', False),
                 trading_decision=getattr(args, 'trading_decision', False),
+                structure=getattr(args, 'structure', None),
                 account_size=getattr(args, 'account_size', None),
                 risk_per_trade=getattr(args, 'risk_per_trade', None)
             )

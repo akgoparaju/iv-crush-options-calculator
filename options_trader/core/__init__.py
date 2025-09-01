@@ -93,8 +93,8 @@ except ImportError as e:
 
 # Module 4: Trading Decision Automation (conditional imports)
 try:
-    from .decision_engine import BinaryDecisionEngine, TradingDecision
-    __all__.extend(["BinaryDecisionEngine", "TradingDecision"])
+    from .decision_engine import ConfigurableDecisionEngine, EnhancedTradingDecision
+    __all__.extend(["ConfigurableDecisionEngine", "EnhancedTradingDecision"])
 except ImportError as e:
     import logging
     logger = logging.getLogger(__name__)

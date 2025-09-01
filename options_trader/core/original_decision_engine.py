@@ -58,35 +58,42 @@ class OriginalStrategyResult:
         """Generate clear reasoning for the decision"""
         reasons = []
         
+        # Safe formatting helpers to handle None values
+        def safe_float(val, default=0.0, precision=2):
+            return f"{val if val is not None else default:.{precision}f}"
+        
+        def safe_int(val, default=0):
+            return f"{val if val is not None else default:,.0f}"
+        
         if self.decision == OriginalDecision.RECOMMENDED:
             reasons.append("ALL 3 ORIGINAL STRATEGY SIGNALS PRESENT - High confidence trade")
-            reasons.append(f"✅ Term structure backwardated: {self.ts_slope_value:.6f} <= {self.ts_slope_threshold}")
-            reasons.append(f"✅ IV overpriced vs RV: {self.iv_rv_ratio:.2f} >= {self.iv_rv_threshold}")  
-            reasons.append(f"✅ High liquidity: {self.volume_30d:,.0f} >= {self.volume_threshold:,.0f}")
+            reasons.append(f"✅ Term structure backwardated: {safe_float(self.ts_slope_value, 0.0, 6)} <= {self.ts_slope_threshold}")
+            reasons.append(f"✅ IV overpriced vs RV: {safe_float(self.iv_rv_ratio, 0.0, 2)} >= {self.iv_rv_threshold}")  
+            reasons.append(f"✅ High liquidity: {safe_int(self.volume_30d, 0)} >= {self.volume_threshold:,.0f}")
             
         elif self.decision == OriginalDecision.CONSIDER:
             reasons.append("2 SIGNALS INCLUDING SLOPE - Moderate confidence, manual review recommended")
             if self.ts_slope_signal:
-                reasons.append(f"✅ Term structure backwardated: {self.ts_slope_value:.6f} <= {self.ts_slope_threshold}")
+                reasons.append(f"✅ Term structure backwardated: {safe_float(self.ts_slope_value, 0.0, 6)} <= {self.ts_slope_threshold}")
             if self.iv_rv_signal:
-                reasons.append(f"✅ IV overpriced vs RV: {self.iv_rv_ratio:.2f} >= {self.iv_rv_threshold}")
+                reasons.append(f"✅ IV overpriced vs RV: {safe_float(self.iv_rv_ratio, 0.0, 2)} >= {self.iv_rv_threshold}")
             if self.volume_signal:
-                reasons.append(f"✅ High liquidity: {self.volume_30d:,.0f} >= {self.volume_threshold:,.0f}")
+                reasons.append(f"✅ High liquidity: {safe_int(self.volume_30d, 0)} >= {self.volume_threshold:,.0f}")
                 
             # Add missing signals
             if not self.iv_rv_signal:
-                reasons.append(f"❌ IV/RV ratio insufficient: {self.iv_rv_ratio:.2f} < {self.iv_rv_threshold}")
+                reasons.append(f"❌ IV/RV ratio insufficient: {safe_float(self.iv_rv_ratio, 0.0, 2)} < {self.iv_rv_threshold}")
             if not self.volume_signal:
-                reasons.append(f"❌ Liquidity insufficient: {self.volume_30d:,.0f} < {self.volume_threshold:,.0f}")
+                reasons.append(f"❌ Liquidity insufficient: {safe_int(self.volume_30d, 0)} < {self.volume_threshold:,.0f}")
                 
         else:  # AVOID
             reasons.append("INSUFFICIENT SIGNALS OR MISSING SLOPE - No trade recommended")
             if not self.ts_slope_signal:
-                reasons.append(f"❌ Term structure not backwardated: {self.ts_slope_value:.6f} > {self.ts_slope_threshold}")
+                reasons.append(f"❌ Term structure not backwardated: {safe_float(self.ts_slope_value, 0.0, 6)} > {self.ts_slope_threshold}")
             if not self.iv_rv_signal:
-                reasons.append(f"❌ IV/RV ratio insufficient: {self.iv_rv_ratio:.2f} < {self.iv_rv_threshold}")
+                reasons.append(f"❌ IV/RV ratio insufficient: {safe_float(self.iv_rv_ratio, 0.0, 2)} < {self.iv_rv_threshold}")
             if not self.volume_signal:
-                reasons.append(f"❌ Liquidity insufficient: {self.volume_30d:,.0f} < {self.volume_threshold:,.0f}")
+                reasons.append(f"❌ Liquidity insufficient: {safe_int(self.volume_30d, 0)} < {self.volume_threshold:,.0f}")
                 
         return reasons
 

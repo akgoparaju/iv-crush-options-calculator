@@ -1,0 +1,58 @@
+{
+  "strategy_alignment": {
+    "status": "completed",
+    "results": {
+      "passed": 7,
+      "failed": 6,
+      "skipped": 0,
+      "errors": [
+        "Original Strategy - All Signals: ",
+        "Original Strategy - Two Signals: ",
+        "Original Strategy - No Slope: ",
+        "Threshold Validation: ",
+        "Structure Selection: ",
+        "Edge Case - Invalid Config: type object 'pytest' has no attribute 'fail'"
+      ]
+    },
+    "summary": {
+      "passed": 7,
+      "failed": 6,
+      "skipped": 0,
+      "success_rate": 53.84615384615385
+    }
+  },
+  "demo_scenarios": {
+    "status": "completed",
+    "success": true,
+    "summary": {
+      "overall_status": "PASS",
+      "scenarios_run": 5,
+      "description": "Configuration and workflow validation"
+    }
+  },
+  "edge_cases": {
+    "status": "completed",
+    "success": false,
+    "summary": {
+      "overall_status": "PARTIAL",
+      "description": "Robustness and error handling validation"
+    }
+  },
+  "system_integration": {
+    "status": "completed",
+    "results": {
+      "basic_analysis": true,
+      "with_earnings": true,
+      "with_trading_decision": true,
+      "with_structure_selection": true,
+      "configuration_switching": true
+    },
+    "summary": {
+      "passed_tests": 5,
+      "total_tests": 5,
+      "success_rate": 100.0,
+      "overall_status": "PASS"
+    }
+  },
+  "overall_summary": {}
+}

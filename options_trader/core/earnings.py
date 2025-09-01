@@ -100,13 +100,15 @@ class EarningsCalendar:
             except Exception as e:
                 logger.warning(f"Invalid timezone '{user_timezone}': {e}")
         
-        # Try to auto-detect from system
+        # Try to auto-detect from system using tzlocal
         try:
-            import time
-            return ZoneInfo(time.tzname[0])
-        except Exception:
-            pass
-            
+            from tzlocal import get_localzone
+            return get_localzone()
+        except ImportError:
+            logger.warning("tzlocal not installed, falling back to other methods. `pip install tzlocal`")
+        except Exception as e:
+            logger.warning(f"Could not detect timezone using tzlocal: {e}")
+
         # Fallback to Eastern (market timezone)
         logger.warning("Could not detect user timezone, defaulting to Eastern")
         return ZoneInfo("America/New_York")

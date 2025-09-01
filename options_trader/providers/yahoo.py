@@ -15,7 +15,7 @@ from typing import Dict, List, Optional, Tuple
 import yfinance as yf
 import pandas as pd
 
-from .base import PriceProvider, OptionsProvider
+from .base import PriceProvider, OptionsProvider, EarningsProvider, EarningsEvent
 
 try:
     from yfinance.exceptions import YFRateLimitError
@@ -26,7 +26,7 @@ except Exception:
 logger = logging.getLogger("options_trader.providers.yahoo")
 
 
-class YahooProvider(PriceProvider, OptionsProvider):
+class YahooProvider(PriceProvider, OptionsProvider, EarningsProvider):
     """Yahoo Finance data provider using yfinance library."""
     
     def __init__(self):
@@ -141,3 +141,62 @@ class YahooProvider(PriceProvider, OptionsProvider):
         except Exception as e:
             logger.warning(f"Yahoo get_chain failed for {symbol} {expiration}: {e}")
             raise
+
+    def get_next_earnings(self, symbol: str) -> Optional[EarningsEvent]:
+        """
+        Get next earnings announcement from Yahoo Finance.
+        
+        Args:
+            symbol: Stock symbol
+            
+        Returns:
+            EarningsEvent if found, None otherwise
+        """
+        ticker = self._get_ticker(symbol)
+        try:
+            earnings_dates = ticker.earnings_dates
+            logger.debug(f"Raw earnings dates for {symbol} from yfinance: {earnings_dates}")
+            if earnings_dates is None or earnings_dates.empty:
+                logger.debug(f"No earnings dates found for {symbol} from yfinance")
+                return None
+
+            # Find the next earnings date
+            now = datetime.now().date()
+            future_earnings = earnings_dates[earnings_dates.index.date > now]
+            if future_earnings.empty:
+                logger.debug(f"No future earnings dates found for {symbol}")
+                return None
+
+            next_earnings_row = future_earnings.iloc[0]
+            earnings_date = next_earnings_row.name.date()
+
+            # yfinance doesn't reliably provide timing, so we default to AMC
+            event = EarningsEvent(
+                symbol=symbol.upper(),
+                date=datetime.combine(earnings_date, datetime.min.time()),
+                timing="AMC",  # Default assumption
+                confirmed=False,  # yfinance doesn't provide confirmation
+                source="yahoo.earnings_dates"
+            )
+            logger.info(f"Found next earnings for {symbol}: {earnings_date} (estimated) from yfinance")
+            return event
+
+        except Exception as e:
+            logger.warning(f"Yahoo earnings lookup failed for {symbol}: {e}")
+            return None
+
+    def get_earnings_calendar(self, symbol: str, days_ahead: int = 30) -> List[EarningsEvent]:
+        """
+        Get earnings calendar for multiple periods.
+        
+        Args:
+            symbol: Stock symbol
+            days_ahead: Number of days to look ahead
+            
+        Returns:
+            List of EarningsEvent objects
+        """
+        next_earnings = self.get_next_earnings(symbol)
+        if next_earnings:
+            return [next_earnings]
+        return []

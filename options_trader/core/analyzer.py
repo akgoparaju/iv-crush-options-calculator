@@ -14,6 +14,7 @@ This is the primary entry point that maintains backward compatibility
 with the original analyze_symbol function.
 """
 
+import os
 import logging
 from typing import Dict, Any
 
@@ -34,7 +35,8 @@ logger = logging.getLogger("options_trader.analyzer")
 def analyze_symbol(symbol: str, expirations_to_check: int = 1, use_demo: bool = False, 
                   include_earnings: bool = False, include_trade_construction: bool = False,
                   include_position_sizing: bool = False, include_trading_decision: bool = False,
-                  account_size: float = None, risk_per_trade: float = None) -> Dict[str, Any]:
+                  trade_structure: str = None, account_size: float = None, 
+                  risk_per_trade: float = None) -> Dict[str, Any]:
     """
     Analyze a symbol for options trading opportunities.
     
@@ -55,6 +57,7 @@ def analyze_symbol(symbol: str, expirations_to_check: int = 1, use_demo: bool = 
         include_trade_construction: Include trade construction & P&L (Module 2 feature)
         include_position_sizing: Include position sizing & risk management (Module 3 feature)
         include_trading_decision: Include trading decision automation (Module 4 feature)
+        trade_structure: Trade structure preference ('calendar', 'straddle', 'auto', or None for default)
         account_size: Override account size for position sizing calculations
         risk_per_trade: Override risk per trade percentage
         
@@ -339,7 +342,124 @@ def analyze_symbol(symbol: str, expirations_to_check: int = 1, use_demo: bool = 
                                 }
                             }
                             
-                            logger.info(f"Trade construction complete for {symbol}: ${calendar_trade.net_debit:.2f} debit, quality score: {quality_assessment.get('overall_score', 0):.1f}")
+                            # Stage 2: Add ATM Straddle construction if enabled and requested
+                            straddle_data = None
+                            try:
+                                import os as safe_os  # Import locally to avoid conflicts
+                                structure_preference = trade_structure or safe_os.getenv("DEFAULT_TRADE_STRUCTURE", "calendar")
+                                enable_straddle = safe_os.getenv("ENABLE_STRADDLE_STRUCTURE", "true").lower() == "true"
+                            except Exception as env_error:
+                                logger.warning(f"Could not access environment variables: {env_error}")
+                                structure_preference = trade_structure or "calendar"
+                                enable_straddle = True
+                            
+                            if enable_straddle:  # Build straddle for comparison regardless of preference
+                                try:
+                                    from .straddle_construction import StraddleConstructor, TradeStructureSelector
+                                    
+                                    # Initialize straddle constructor
+                                    straddle_constructor = StraddleConstructor()
+                                    
+                                    # Get front expiration (same as calendar front leg)
+                                    front_expiration = calendar_trade.front_expiration
+                                    
+                                    # Try to get options chain data using the correct DataService method
+                                    options_chain = {}
+                                    try:
+                                        # Get options chain for the front expiration (same as calendar spread)
+                                        chain_data, source = data_service.get_chain(symbol, front_expiration)
+                                        if chain_data:
+                                            options_chain = chain_data  # chain_data is already the options chain
+                                            logger.debug(f"Retrieved options chain for straddle construction from {source}")
+                                    except Exception as e:
+                                        logger.debug(f"Could not get options chain for straddle construction: {e}")
+                                    
+                                    if options_chain:
+                                        # Build ATM straddle
+                                        straddle_trade = straddle_constructor.build_atm_straddle(
+                                            symbol, front_expiration, calendar_trade.underlying_price, options_chain
+                                        )
+                                        
+                                        if straddle_trade:
+                                            # Analyze straddle risk
+                                            straddle_risk = straddle_constructor.analyze_straddle_risk(
+                                                straddle_trade, calendar_trade.underlying_price
+                                            )
+                                            
+                                            straddle_data = {
+                                                "straddle_trade": {
+                                                    "symbol": straddle_trade.symbol,
+                                                    "strike": straddle_trade.strike,
+                                                    "expiration": straddle_trade.expiration,
+                                                    "net_credit": straddle_trade.net_credit,
+                                                    "max_profit": straddle_trade.max_profit,
+                                                    "max_risk": straddle_trade.max_risk,
+                                                    "breakeven_upper": straddle_trade.breakeven_upper,
+                                                    "breakeven_lower": straddle_trade.breakeven_lower,
+                                                    "probability_of_profit": straddle_trade.probability_of_profit,
+                                                    "liquidity_score": straddle_trade.liquidity_score
+                                                },
+                                                "straddle_greeks": {
+                                                    "net_delta": straddle_trade.net_delta,
+                                                    "net_gamma": straddle_trade.net_gamma,
+                                                    "net_theta": straddle_trade.net_theta,
+                                                    "net_vega": straddle_trade.net_vega
+                                                },
+                                                "risk_analysis": straddle_risk
+                                            }
+                                            
+                                            logger.info(f"ATM straddle construction complete for {symbol}: ${straddle_trade.net_credit:.2f} credit, POP: {straddle_trade.probability_of_profit:.1%}")
+                                        else:
+                                            logger.warning(f"Could not construct ATM straddle for {symbol}")
+                                    else:
+                                        logger.debug(f"No options chain available for straddle construction: {symbol}")
+                                        
+                                except ImportError as e:
+                                    logger.warning(f"Straddle construction components not available: {e}")
+                                except Exception as e:
+                                    logger.error(f"Straddle construction failed for {symbol}: {e}")
+                            
+                            # Add straddle data to results if available
+                            if straddle_data:
+                                result["trade_construction"]["straddle_construction"] = straddle_data
+                            
+                            # Add structure recommendation
+                            try:
+                                from .straddle_construction import TradeStructureSelector
+                                structure_selector = TradeStructureSelector()
+                                
+                                # Get account size for structure recommendation - handle os access safely
+                                try:
+                                    import os as safe_os  # Import locally to avoid variable conflicts
+                                    account_size_for_rec = account_size or float(safe_os.getenv("ACCOUNT_SIZE", "10000"))
+                                except Exception as env_error:
+                                    logger.warning(f"Could not access environment variables: {env_error}")
+                                    account_size_for_rec = account_size or 10000.0  # fallback
+                                
+                                structure_recommendation = structure_selector.recommend_structure(
+                                    structure_preference, account_size_for_rec
+                                )
+                                
+                                # Get structure comparison if both structures are available
+                                structure_comparison = None
+                                if straddle_data:
+                                    calendar_metrics = {"quality_score": quality_assessment.get("overall_score", 0)}
+                                    straddle_metrics = {"probability_of_profit": straddle_data["straddle_trade"]["probability_of_profit"]}
+                                    structure_comparison = structure_selector.get_structure_comparison(calendar_metrics, straddle_metrics)
+                                
+                                result["trade_construction"]["structure_selection"] = {
+                                    "requested_structure": structure_preference,
+                                    "recommended_structure": structure_recommendation,
+                                    "structure_comparison": structure_comparison,
+                                    "straddle_available": straddle_data is not None
+                                }
+                                
+                            except ImportError:
+                                logger.debug("Structure selector not available")
+                            except Exception as struct_error:
+                                logger.warning(f"Structure recommendation failed: {struct_error}")
+                            
+                            logger.info(f"Trade construction complete for {symbol}: Calendar ${calendar_trade.net_debit:.2f} debit, quality score: {quality_assessment.get('overall_score', 0):.1f}")
                         else:
                             result["trade_construction"] = {"error": "Could not construct valid calendar trade"}
                             logger.warning(f"Trade construction failed for {symbol}")
@@ -490,45 +610,73 @@ def analyze_symbol(symbol: str, expirations_to_check: int = 1, use_demo: bool = 
                 logger.error(f"Position sizing analysis failed for {symbol}: {e}")
                 result["position_sizing"] = {"error": f"Position sizing failed: {str(e)}"}
         
-        # NEW: Module 4 - Trading Decision Automation
+        # NEW: Module 4 - Configurable Trading Decision Automation
         if include_trading_decision:
             try:
                 # Import Module 4 components conditionally
                 try:
-                    from .decision_engine import BinaryDecisionEngine
+                    from .decision_engine import ConfigurableDecisionEngine
+                    from .output_formatter import StrategyOutputFormatter
                     MODULE_4_AVAILABLE = True
                 except ImportError as e:
                     logger.warning(f"Module 4 components not available: {e}")
                     MODULE_4_AVAILABLE = False
                 
                 if MODULE_4_AVAILABLE:
-                    logger.debug(f"Running trading decision analysis for {symbol}")
+                    logger.debug(f"Running configurable trading decision analysis for {symbol}")
                     
-                    # Initialize decision engine
-                    decision_engine = BinaryDecisionEngine()
+                    # Initialize configurable decision engine and formatter
+                    decision_engine = ConfigurableDecisionEngine()
+                    output_formatter = StrategyOutputFormatter()
                     
                     # Make trading decision based on complete analysis
-                    trading_decision = decision_engine.make_trading_decision(result)
+                    enhanced_decision = decision_engine.make_trading_decision(result)
                     
-                    # Add decision to results
-                    result["trading_decision"] = {
-                        "decision": trading_decision.decision,  # "EXECUTE", "PASS", or "CONSIDER"
-                        "confidence": trading_decision.confidence,
-                        "reasoning": trading_decision.reasoning,
-                        "risk_reward_ratio": trading_decision.risk_reward_ratio,
-                        "signal_strength": trading_decision.signal_strength,
-                        "liquidity_score": trading_decision.liquidity_score,
-                        "win_probability": trading_decision.win_rate,  # Use win_rate as win_probability
-                        "expected_return": trading_decision.expected_value,  # Use expected_value as expected_return
-                        "quality_score": trading_decision.quality_score,
-                        "position_size": trading_decision.position_size,
-                        "is_valid": trading_decision.is_valid,
-                        "validation_errors": trading_decision.validation_errors
+                    # Format decision output for display (Stage 3: pass metrics for threshold validation)
+                    analysis_metrics = {
+                        'ts_slope': result.get('calendar_spread_analysis', {}).get('ts_slope'),
+                        'iv_rv_ratio': result.get('calendar_spread_analysis', {}).get('iv_rv_ratio'),
+                        'avg_volume_30d': result.get('calendar_spread_analysis', {}).get('avg_volume_30d'),
+                        'volume': result.get('calendar_spread_analysis', {}).get('avg_volume_30d')  # Fallback alias
                     }
                     
-                    logger.info(f"Trading decision for {symbol}: {trading_decision.decision} "
-                               f"(confidence: {trading_decision.confidence:.1%}, "
-                               f"expected return: {trading_decision.expected_value:.1%})")
+                    # Remove None values
+                    analysis_metrics = {k: v for k, v in analysis_metrics.items() if v is not None}
+                    
+                    formatted_output = output_formatter.format_decision_output(enhanced_decision, analysis_metrics)
+                    
+                    # Add enhanced decision to results
+                    result["trading_decision"] = {
+                        # Original strategy fields (always present)
+                        "decision": enhanced_decision.original_decision,  # "RECOMMENDED", "CONSIDER", or "AVOID"
+                        "original_decision": enhanced_decision.original_decision,
+                        "original_confidence": enhanced_decision.original_confidence,
+                        "signal_strength": enhanced_decision.signal_strength,
+                        "signal_breakdown": enhanced_decision.signal_breakdown,
+                        "original_reasoning": enhanced_decision.original_reasoning,
+                        
+                        # Enhanced fields (optional)
+                        "enhanced_decision": enhanced_decision.enhanced_decision,
+                        "enhanced_confidence": enhanced_decision.enhanced_confidence,
+                        "enhanced_reasoning": enhanced_decision.enhanced_reasoning,
+                        "risk_reward_ratio": enhanced_decision.risk_reward_ratio,
+                        "quality_score": enhanced_decision.quality_score,
+                        "win_probability": enhanced_decision.win_rate_estimate,
+                        "expected_return": enhanced_decision.expected_value,
+                        "position_size": enhanced_decision.position_size,
+                        
+                        # Framework metadata
+                        "framework": enhanced_decision.framework,
+                        "is_valid": enhanced_decision.is_valid,
+                        "validation_errors": enhanced_decision.validation_errors,
+                        
+                        # Formatted output for display
+                        "formatted_output": formatted_output
+                    }
+                    
+                    logger.info(f"Trading decision for {symbol}: {enhanced_decision.original_decision} "
+                               f"(framework: {enhanced_decision.framework}, "
+                               f"confidence: {enhanced_decision.original_confidence:.1%})")
                 else:
                     result["trading_decision"] = {"error": "Module 4 components not available"}
                     logger.warning("Trading decision requested but Module 4 not available")

@@ -1,21 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Binary Decision Engine - Module 4
-==================================
+Configurable Decision Engine - Module 4
+========================================
 
-Automated trading decision engine that provides clear EXECUTE/PASS/CONSIDER
-outputs with confidence scoring and reasoning based on analysis from Modules 1-3.
+Configurable trading decision engine supporting multiple frameworks:
+- original: Pure YouTube strategy logic (RECOMMENDED/CONSIDER/AVOID)
+- enhanced: Complex multi-criteria approach (EXECUTE/PASS/CONSIDER)
+- hybrid: Original primary + enhanced as FYI
 
-Decision Framework:
-- EXECUTE: High confidence trades meeting all criteria
-- CONSIDER: Moderate confidence trades requiring review  
-- PASS: Low confidence trades not meeting minimum standards
+Configuration controlled via .env settings for flexible deployment.
 """
 
+import os
 import logging
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional
+
+# Import original strategy decision engine
+try:
+    from .original_decision_engine import OriginalStrategyDecisionEngine, OriginalStrategyResult, OriginalDecision
+    HAS_ORIGINAL_ENGINE = True
+except ImportError:
+    HAS_ORIGINAL_ENGINE = False
 
 logger = logging.getLogger("options_trader.decision_engine")
 
@@ -64,32 +71,236 @@ class TradingDecision:
     validation_errors: List[str] = field(default_factory=list)
 
 
-class BinaryDecisionEngine:
-    """
-    Binary decision engine for automated trading decisions.
+@dataclass 
+class EnhancedTradingDecision:
+    """Extended decision with original + enhanced metrics"""
+    symbol: str
     
-    Provides EXECUTE/PASS/CONSIDER decisions based on analysis from Modules 1-3
-    with confidence scoring and detailed reasoning.
+    # Original strategy fields (always present)
+    original_decision: str          # RECOMMENDED/CONSIDER/AVOID
+    original_confidence: float      # 0.0-1.0
+    signal_strength: int           # 0-3 signals
+    signal_breakdown: Dict[str, bool]  # Individual signal status
+    original_reasoning: List[str] = field(default_factory=list)
+    
+    # Enhanced metrics (optional FYI)
+    enhanced_metrics: Optional[Dict[str, Any]] = None
+    enhanced_decision: Optional[str] = None  # EXECUTE/PASS/CONSIDER  
+    enhanced_confidence: Optional[float] = None
+    enhanced_reasoning: Optional[List[str]] = None
+    risk_reward_ratio: Optional[float] = None
+    quality_score: Optional[float] = None
+    win_rate_estimate: Optional[float] = None
+    expected_value: Optional[float] = None
+    position_size: Optional[int] = None
+    
+    # Framework metadata
+    framework: str = "original"  # original|enhanced|hybrid
+    is_valid: bool = True
+    validation_errors: List[str] = field(default_factory=list)
+
+
+class ConfigurableDecisionEngine:
+    """
+    Configurable decision engine supporting multiple frameworks:
+    - original: Pure YouTube strategy logic
+    - enhanced: Current complex multi-criteria approach  
+    - hybrid: Original primary + enhanced as FYI
     """
     
     def __init__(self):
-        """Initialize the decision engine."""
-        self.logger = logging.getLogger(f"{__name__}.BinaryDecisionEngine")
+        """Initialize the configurable decision engine."""
+        self.logger = logging.getLogger(f"{__name__}.ConfigurableDecisionEngine")
         
-    def make_trading_decision(self, analysis_result: Dict[str, Any]) -> TradingDecision:
+        # Load configuration from environment
+        self.framework = os.getenv("DECISION_FRAMEWORK", "original").lower()
+        self.show_enhanced = os.getenv("SHOW_ENHANCED_METRICS", "true").lower() == "true"
+        self.strict_original = os.getenv("ORIGINAL_STRATEGY_STRICT", "true").lower() == "true"
+        
+        # Initialize engines
+        self.original_engine = None
+        if HAS_ORIGINAL_ENGINE:
+            self.original_engine = OriginalStrategyDecisionEngine()
+        
+        self.logger.info(f"ConfigurableDecisionEngine initialized: framework={self.framework}, "
+                        f"enhanced_metrics={self.show_enhanced}, strict_original={self.strict_original}")
+    
+    def make_trading_decision(self, analysis_result: Dict[str, Any]) -> EnhancedTradingDecision:
         """
-        Make a binary trading decision based on complete analysis.
+        Make a configurable trading decision based on selected framework.
         
         Args:
-            analysis_result: Complete analysis from Modules 1-3 including:
-                - calendar_spread_analysis: Signal strength and metrics
-                - trade_construction: Trade specifications and quality
-                - position_sizing: Position size and risk assessment
-                - earnings_analysis: Optional earnings timing
+            analysis_result: Complete analysis from Modules 1-3
         
         Returns:
-            TradingDecision with binary decision and reasoning
+            EnhancedTradingDecision with framework-specific decision and optional metrics
         """
+        symbol = analysis_result.get("symbol", "UNKNOWN")
+        
+        try:
+            if self.framework == "original":
+                return self._make_original_decision(analysis_result)
+            elif self.framework == "enhanced":
+                return self._make_enhanced_decision(analysis_result)  
+            elif self.framework == "hybrid":
+                return self._make_hybrid_decision(analysis_result)
+            else:
+                self.logger.warning(f"Unknown framework '{self.framework}', defaulting to original")
+                return self._make_original_decision(analysis_result)
+                
+        except Exception as e:
+            self.logger.error(f"Decision making failed for {symbol}: {e}")
+            return EnhancedTradingDecision(
+                symbol=symbol,
+                original_decision="AVOID",
+                original_confidence=0.0,
+                signal_strength=0,
+                signal_breakdown={},
+                original_reasoning=[f"Decision engine error: {str(e)}"],
+                framework=self.framework,
+                is_valid=False,
+                validation_errors=[f"Decision engine failed: {str(e)}"]
+            )
+    
+    def _make_original_decision(self, analysis_result: Dict[str, Any]) -> EnhancedTradingDecision:
+        """Make decision using pure original strategy logic."""
+        symbol = analysis_result.get("symbol", "UNKNOWN")
+        
+        if not self.original_engine:
+            self.logger.error("Original decision engine not available")
+            return EnhancedTradingDecision(
+                symbol=symbol,
+                original_decision="AVOID",
+                original_confidence=0.0,
+                signal_strength=0,
+                signal_breakdown={},
+                original_reasoning=["Original decision engine not available"],
+                framework="original",
+                is_valid=False,
+                validation_errors=["Original decision engine not available"]
+            )
+        
+        # Get original strategy decision
+        original_result = self.original_engine.make_original_decision(analysis_result)
+        
+        # Convert to enhanced format
+        enhanced_decision = EnhancedTradingDecision(
+            symbol=symbol,
+            original_decision=original_result.decision.value,
+            original_confidence=self._calculate_original_confidence(original_result),
+            signal_strength=original_result.signal_strength,
+            signal_breakdown={
+                "ts_slope_signal": original_result.ts_slope_signal,
+                "iv_rv_signal": original_result.iv_rv_signal,
+                "volume_signal": original_result.volume_signal
+            },
+            original_reasoning=original_result.reasoning,
+            framework="original"
+        )
+        
+        # Add enhanced metrics as FYI if enabled
+        if self.show_enhanced:
+            enhanced_metrics = self._calculate_enhanced_metrics(analysis_result)
+            if enhanced_metrics and "error" not in enhanced_metrics:
+                enhanced_decision.enhanced_decision = enhanced_metrics.get("enhanced_decision")
+                enhanced_decision.enhanced_confidence = enhanced_metrics.get("enhanced_confidence")
+                enhanced_decision.risk_reward_ratio = enhanced_metrics.get("risk_reward_ratio")
+                enhanced_decision.quality_score = enhanced_metrics.get("quality_score")
+                enhanced_decision.win_rate_estimate = enhanced_metrics.get("win_rate_estimate")
+                enhanced_decision.expected_value = enhanced_metrics.get("expected_value")
+                enhanced_decision.position_size = enhanced_metrics.get("position_size")
+        
+        return enhanced_decision
+    
+    def _make_enhanced_decision(self, analysis_result: Dict[str, Any]) -> EnhancedTradingDecision:
+        """Make decision using enhanced multi-criteria approach."""
+        symbol = analysis_result.get("symbol", "UNKNOWN")
+        
+        # Use existing enhanced logic
+        enhanced_result = self._make_legacy_trading_decision(analysis_result)
+        
+        # Convert to enhanced format
+        enhanced_decision = EnhancedTradingDecision(
+            symbol=symbol,
+            original_decision="CONSIDER",  # Default mapping 
+            original_confidence=0.5,
+            signal_strength=enhanced_result.signal_strength,
+            signal_breakdown=self._extract_signal_breakdown(analysis_result),
+            original_reasoning=["Enhanced framework in use - see enhanced decision"],
+            enhanced_decision=enhanced_result.decision,
+            enhanced_confidence=enhanced_result.confidence,
+            enhanced_reasoning=enhanced_result.reasoning,
+            risk_reward_ratio=enhanced_result.risk_reward_ratio,
+            quality_score=enhanced_result.quality_score,
+            win_rate_estimate=enhanced_result.win_rate,
+            expected_value=enhanced_result.expected_value,
+            position_size=enhanced_result.position_size,
+            framework="enhanced"
+        )
+        
+        return enhanced_decision
+    
+    def _make_hybrid_decision(self, analysis_result: Dict[str, Any]) -> EnhancedTradingDecision:
+        """Make decision using hybrid approach (original primary + enhanced FYI)."""
+        # Get original decision first
+        original_decision = self._make_original_decision(analysis_result)
+        
+        # Add enhanced metrics as FYI
+        enhanced_result = self._make_legacy_trading_decision(analysis_result)
+        
+        # Combine both
+        original_decision.enhanced_decision = enhanced_result.decision
+        original_decision.enhanced_confidence = enhanced_result.confidence
+        original_decision.enhanced_reasoning = enhanced_result.reasoning
+        original_decision.risk_reward_ratio = enhanced_result.risk_reward_ratio
+        original_decision.quality_score = enhanced_result.quality_score
+        original_decision.win_rate_estimate = enhanced_result.win_rate
+        original_decision.expected_value = enhanced_result.expected_value
+        original_decision.position_size = enhanced_result.position_size
+        original_decision.framework = "hybrid"
+        
+        return original_decision
+    
+    def _calculate_original_confidence(self, original_result) -> float:
+        """Calculate confidence score for original strategy decision."""
+        if original_result.decision.value == "RECOMMENDED":
+            return 0.9  # High confidence with all 3 signals
+        elif original_result.decision.value == "CONSIDER":  
+            return 0.6  # Moderate confidence with 2 signals including slope
+        else:
+            return 0.1  # Low confidence for avoid
+    
+    def _calculate_enhanced_metrics(self, analysis_result: Dict[str, Any]) -> Dict[str, Any]:
+        """Calculate enhanced metrics as FYI information."""
+        try:
+            # Extract metrics using legacy logic
+            legacy_result = self._make_legacy_trading_decision(analysis_result)
+            
+            return {
+                "enhanced_decision": legacy_result.decision,
+                "enhanced_confidence": legacy_result.confidence,
+                "risk_reward_ratio": legacy_result.risk_reward_ratio,
+                "quality_score": legacy_result.quality_score,
+                "win_rate_estimate": legacy_result.win_rate,
+                "expected_value": legacy_result.expected_value,
+                "position_size": legacy_result.position_size,
+                "liquidity_score": legacy_result.liquidity_score
+            }
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate enhanced metrics: {e}")
+            return {"error": str(e)}
+    
+    def _extract_signal_breakdown(self, analysis_result: Dict[str, Any]) -> Dict[str, bool]:
+        """Extract signal breakdown from calendar analysis."""
+        calendar_analysis = analysis_result.get("calendar_spread_analysis", {})
+        return {
+            "ts_slope_signal": calendar_analysis.get("ts_slope_signal", False),
+            "iv_rv_signal": calendar_analysis.get("iv_rv_signal", False),
+            "volume_signal": calendar_analysis.get("volume_signal", False)
+        }
+    
+    def _make_legacy_trading_decision(self, analysis_result: Dict[str, Any]) -> TradingDecision:
+        """Legacy enhanced decision logic - renamed from make_trading_decision."""
         try:
             symbol = analysis_result.get("symbol", "UNKNOWN")
             
@@ -132,13 +343,13 @@ class BinaryDecisionEngine:
                 is_valid=True
             )
             
-            self.logger.info(f"Trading decision for {symbol}: {decision} "
+            self.logger.info(f"Legacy trading decision for {symbol}: {decision} "
                            f"(confidence: {confidence:.2f}, signals: {metrics.get('signal_strength', 0)})")
             
             return trading_decision
             
         except Exception as e:
-            self.logger.error(f"Decision making failed: {e}")
+            self.logger.error(f"Legacy decision making failed: {e}")
             return TradingDecision(
                 symbol=analysis_result.get("symbol", "UNKNOWN"),
                 decision="PASS",
