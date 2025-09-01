@@ -49,6 +49,13 @@ GEMINI.md
 # Documentation folder (contains private development notes)
 docs/
 
+# Archive folder (legacy code not used in current system)
+archive/
+
+# Legacy files not used in current modular system
+optionsCalculator.py
+test_modular.py
+
 # Portfolio data (contains personal trading data)
 .portfolio_positions.json
 

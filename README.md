@@ -106,6 +106,55 @@ scipy                   # Scientific computing
 pytz                    # Timezone calculations
 ```
 
+## ⚙️ Configuration
+
+### API Keys Setup
+
+1. **Copy the example configuration:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Edit `.env` with your API credentials:**
+   ```bash
+   # Required: Get free API key from https://www.alphavantage.co/support/#api-key
+   ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key_here
+   
+   # Optional: Additional data providers
+   FINNHUB_API_KEY=your_finnhub_api_key_here
+   TRADIER_TOKEN=your_tradier_token_here
+   ```
+
+3. **Available Data Providers:**
+   - **Alpha Vantage** (Primary): Free tier with 5 calls/minute, 500 calls/day
+   - **Yahoo Finance** (Free): Built-in fallback, no API key required
+   - **Finnhub** (Optional): Enhanced earnings data
+   - **Tradier** (Optional): Professional options data
+
+### Strategy Configuration
+
+The system includes comprehensive configuration options in `.env`:
+
+```bash
+# Strategy Decision Framework
+DECISION_FRAMEWORK=original        # or 'enhanced' or 'hybrid'
+ORIGINAL_STRATEGY_STRICT=true      # Enforce original thresholds
+
+# Original Strategy Thresholds (from YouTube strategy)
+TS_SLOPE_THRESHOLD=-0.00406        # Term structure slope
+IV_RV_RATIO_THRESHOLD=1.25         # IV/RV ratio minimum
+VOLUME_THRESHOLD=1500000           # 30-day average volume minimum
+
+# Trade Structure Selection
+DEFAULT_TRADE_STRUCTURE=calendar   # or 'straddle'
+AUTO_STRUCTURE_THRESHOLD=50000     # Switch threshold
+
+# Position Sizing & Risk Management
+ACCOUNT_SIZE=10000.0               # Your account size
+RISK_PER_TRADE=0.025              # 2.5% risk per trade
+MAX_POSITION_PCT=0.05             # Max 5% per position
+```
+
 ## 🚀 Usage
 
 ### Command Line Interface
