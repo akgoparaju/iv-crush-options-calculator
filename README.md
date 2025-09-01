@@ -16,16 +16,16 @@ The **Advanced Options Trading Calculator** is a modular, production-ready syste
 - **Educational Focus**: Designed for learning and research, not financial advice
 - **Professional Output**: Publication-ready reports and analysis
 
-## 🏗️ Architecture
+## 🏗️ System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Advanced Options Calculator             │
+│                 Advanced Options Calculator                 │
 ├─────────────────────────────────────────────────────────────┤
-│  📊 Module 1: Earnings Calendar & Timing Engine            │
-│  🔧 Module 2: Trade Construction & P&L Analysis            │
-│  💰 Module 3: Position Sizing & Risk Management            │
-│  🚀 Module 4: Trading Decision Automation                  │
+│  📊 Earnings Calendar & Timing Analysis                    │
+│  🔧 Trade Construction & P&L Modeling                      │
+│  💰 Position Sizing & Risk Management                      │
+│  🚀 Automated Trading Decision Engine                      │
 ├─────────────────────────────────────────────────────────────┤
 │  🎨 Professional CLI + Markdown Reports                    │
 │  🌐 Multi-Provider Data Engine (Yahoo, Alpha Vantage+)     │
@@ -33,42 +33,42 @@ The **Advanced Options Trading Calculator** is a modular, production-ready syste
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## ✅ Features
+## ✅ Key Features
 
-### 📊 **Module 1: Earnings Calendar & Timing Engine**
-- **Precise Trading Windows**: 15-minute entry/exit windows around earnings
-- **Multi-Provider Integration**: Alpha Vantage, Yahoo Finance, Finnhub, Tradier
-- **Timezone Intelligence**: Auto-detection with Eastern fallback
-- **BMO/AMC Detection**: Before/After market timing analysis
-- **Weekend Validation**: Conflict detection and warnings
+### 📊 **Earnings Calendar & Timing Analysis**
+- **Precise Trading Windows**: 15-minute entry/exit windows around earnings announcements
+- **Multi-Provider Data Integration**: Alpha Vantage, Yahoo Finance, Finnhub, Tradier with intelligent fallbacks
+- **Timezone Intelligence**: Automatic timezone detection with Eastern market fallback
+- **BMO/AMC Detection**: Before Market Open vs After Market Close timing analysis
+- **Weekend & Holiday Validation**: Automatic conflict detection and warnings
 
-### 🔧 **Module 2: Trade Construction & P&L Analysis**
-- **Calendar Spreads**: ATM calendar spread construction and analysis
-- **Straddle Analysis**: Short ATM straddle comparison and risk assessment
-- **Greeks Calculation**: Delta, Gamma, Theta, Vega exposure analysis
-- **P&L Modeling**: Monte Carlo scenarios with IV crush modeling
-- **Quality Scoring**: Comprehensive trade quality assessment
+### 🔧 **Advanced Trade Construction**
+- **Calendar Spreads**: Automated ATM calendar spread construction and optimization
+- **Alternative Strategies**: Short ATM straddle analysis and comparison
+- **Greeks Analysis**: Real-time Delta, Gamma, Theta, Vega exposure calculations
+- **P&L Scenario Modeling**: Monte Carlo simulations with IV crush modeling
+- **Trade Quality Scoring**: Comprehensive quality assessment with win rate predictions
 
-### 💰 **Module 3: Position Sizing & Risk Management**
-- **Fractional Kelly Calculator**: Signal-strength adjusted position sizing
-- **Risk Management Engine**: Portfolio risk validation and compliance
-- **Account Integration**: Configurable account parameters and limits
-- **Delta Exposure Monitoring**: Portfolio-wide Greek exposure tracking
-- **Practical Constraints**: Realistic position limits and validations
+### 💰 **Intelligent Position Sizing**
+- **Kelly Criterion Calculator**: Signal-strength adjusted position sizing with fractional Kelly
+- **Risk Management Engine**: Portfolio-level risk validation and compliance monitoring  
+- **Account Parameter Integration**: Configurable account size, risk tolerance, and position limits
+- **Greek Exposure Tracking**: Portfolio-wide delta, theta exposure monitoring
+- **Practical Position Constraints**: Realistic contract limits and capital requirements
 
-### 🚀 **Module 4: Trading Decision Automation**
-- **Original Strategy Engine**: Pure YouTube strategy implementation
-- **Enhanced Decision Framework**: Multi-criteria analysis with confidence scoring
-- **Configurable Modes**: Original/Enhanced/Hybrid decision frameworks
-- **Threshold Validation**: Exact compliance with strategy parameters
-- **Risk/Reward Analysis**: Comprehensive decision metrics
+### 🚀 **Automated Decision Making**
+- **Multi-Framework Analysis**: Original strategy, enhanced analytics, and hybrid approaches
+- **Signal Validation**: 3-factor signal system (Term Structure, IV/RV Ratio, Volume)
+- **Confidence Scoring**: Probabilistic confidence ratings for all recommendations
+- **Risk/Reward Analysis**: Comprehensive metrics including expected returns and drawdown
+- **Configurable Thresholds**: Customizable parameters for different trading styles
 
-### 🎨 **Professional Output System**
-- **Dual Output**: Real-time console + markdown reports
-- **Smart Text Wrapping**: No truncation - full sentences in tables
-- **Professional Tables**: Unicode borders with intelligent layout
-- **Rich Markdown**: Tables, alerts, summaries with proper typography
-- **Comprehensive Logging**: Timestamped analysis logs
+### 🎨 **Professional Reporting System**
+- **Dual Output Format**: Real-time console display + professional markdown reports  
+- **Smart Text Formatting**: Intelligent text wrapping - no truncated sentences
+- **Unicode Table Design**: Professional bordered tables with intelligent column sizing
+- **Rich Markdown Reports**: Tables, alerts, blockquotes with proper typography
+- **Timestamped Analysis Logs**: Complete analysis history with searchable logs
 
 ## 📦 Installation
 
@@ -79,8 +79,8 @@ The **Advanced Options Trading Calculator** is a modular, production-ready syste
 ### Quick Start
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/trade-calculator.git
-cd trade-calculator
+git clone https://github.com/akgoparaju/iv-crush-options-calculator.git
+cd iv-crush-options-calculator
 
 # Create and activate virtual environment
 python3 -m venv venv
@@ -261,20 +261,19 @@ python3 main.py --demo --earnings --trade-construction --symbol LULU
 
 ## 📚 Documentation
 
-- **[CLAUDE.md](CLAUDE.md)**: Complete technical documentation and implementation details
-- **[Strategy Guide](docs/earnings_iv_crush_strategy_complete_playbook.md)**: Comprehensive strategy documentation
-- **[Module Documentation](docs/)**: Detailed module-specific documentation
+- **[Strategy Guide](earnings_iv_crush_strategy_complete_playbook.md)**: Complete earnings IV crush strategy documentation
 - **[API Reference](options_trader/)**: Code documentation and examples
+- **[Test Suite](test_modular.py)**: Comprehensive testing and validation examples
 
 ## 🛣️ Roadmap
 
 ### Current Status: ✅ Production Ready
-- ✅ Module 1: Earnings Calendar & Timing Engine
-- ✅ Module 2: Trade Construction & P&L Analysis  
-- ✅ Module 3: Position Sizing & Risk Management
-- ✅ Module 4: Trading Decision Automation
-- ✅ Professional CLI + Markdown Output
-- ✅ Comprehensive Testing & Validation
+- ✅ **Earnings Analysis**: Complete calendar integration and timing windows
+- ✅ **Trade Construction**: Calendar spreads, straddles, and P&L modeling  
+- ✅ **Risk Management**: Position sizing with Kelly criterion and portfolio tracking
+- ✅ **Decision Engine**: Automated analysis with configurable strategies
+- ✅ **Professional Output**: Dual CLI + Markdown reporting system
+- ✅ **Testing & Validation**: Comprehensive test suite with edge case coverage
 
 ### Future Enhancements
 - [ ] **Web Interface**: Modern web-based dashboard
@@ -347,7 +346,7 @@ This project is licensed under the **Educational Use License** - see the [LICENS
 python3 main.py --demo --earnings --symbol AAPL
 ```
 
-**📖 Need help?** Check out [CLAUDE.md](CLAUDE.md) for comprehensive documentation
+**📖 Need help?** Check out the [Strategy Guide](earnings_iv_crush_strategy_complete_playbook.md) for comprehensive documentation
 
 **⭐ Found this useful?** Please star this repository!
 
