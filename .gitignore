@@ -22,6 +22,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+
 # Virtual Environment
 venv/
 env/
@@ -40,7 +41,6 @@ logs/
 
 # Environment variables
 .env
-.env.*
 
 # Private Documentation (excluded from public repo)
 CLAUDE.md
