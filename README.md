@@ -132,7 +132,6 @@ npm run dev
 
 **Backend (Python):**
 ```
-FreeSimpleGUI           # GUI framework
 yfinance                # Primary financial data
 requests                # HTTP client for API calls
 pandas                  # Data manipulation
@@ -383,11 +382,15 @@ python3 main.py --demo --earnings --trade-construction --symbol LULU
 - ✅ **Professional Output**: Dual CLI + Markdown reporting system
 - ✅ **Testing & Validation**: Comprehensive test suite with edge case coverage
 
+### ✅ **Recently Completed (September 2025)**
+- ✅ **Web Interface**: Modern React-based dashboard with full trading platform
+- ✅ **Bug Fixes**: Resolved TradingDecision validation and CORS configuration issues
+- ✅ **Code Cleanup**: Removed 65KB+ of legacy GUI components and duplicate files
+- ✅ **Architecture Modernization**: Streamlined to FastAPI backend + React frontend
+
 ### Future Enhancements
-- [ ] **Web Interface**: Modern web-based dashboard
 - [ ] **Backtesting Engine**: Historical strategy validation
 - [ ] **Alert System**: Real-time opportunity notifications
-- [ ] **Portfolio Manager**: Multi-position portfolio tracking
 - [ ] **Advanced Strategies**: Iron Condors, Butterflies, etc.
 
 ## 🤝 Contributing
@@ -441,15 +444,15 @@ This project is licensed under the **Educational Use License** - see the [LICENS
 ## 📚 Documentation
 
 ### Complete Platform Documentation
-- **[Frontend UI Guide](UI-docs/comprehensive-ui-guide.md)** - Complete testing procedures, usage instructions, and component documentation for the React web platform
-- **[Strategy Guide](earnings_iv_crush_strategy_complete_playbook.md)** - Complete earnings IV crush strategy documentation
+- **[Strategy Guide](docs/earnings_iv_crush_strategy_complete_playbook.md)** - Complete earnings IV crush strategy documentation
 - **[API Reference](options_trader/)** - Backend code documentation and examples
 - **[Test Suite](test_modular.py)** - Comprehensive testing and validation examples
+- **[Backend Analysis](CLAUDE.md)** - Complete CLI system documentation and configuration
 
 ### Additional Resources
-- **UI Implementation Docs**: `UI-docs/` folder contains detailed Phase 5 implementation documentation
-- **Backend Analysis**: Complete CLI system documentation in CLAUDE.md
+- **Frontend Documentation**: React components and API integration guides
 - **Configuration Guide**: Environment setup and API key configuration instructions
+- **Testing Framework**: Comprehensive test suites with demo scenarios
 
 ## 🙏 Acknowledgments
 
@@ -475,7 +478,7 @@ cd frontend && npm run dev
 python3 main.py --demo --earnings --symbol AAPL
 ```
 
-**📖 Need help?** Check out the [Frontend UI Guide](UI-docs/comprehensive-ui-guide.md) and [Strategy Guide](earnings_iv_crush_strategy_complete_playbook.md)
+**📖 Need help?** Check out the [Strategy Guide](docs/earnings_iv_crush_strategy_complete_playbook.md) and [Configuration Guide](CLAUDE.md)
 
 **⭐ Found this useful?** Please star this repository!
 

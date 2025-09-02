@@ -1,5 +1,4 @@
 # Core dependencies
-FreeSimpleGUI
 yfinance
 requests
 pandas

@@ -6,16 +6,18 @@ Advanced Options Calculator - Main Entry Point
 
 Modular options trading calculator with earnings volatility strategies.
 
-NEW FEATURES (Module 1):
+FEATURES:
 - Earnings calendar integration with precise timing windows
 - Multi-provider data sourcing with fallback logic
-- Enhanced GUI with earnings analysis panel
+- Trade construction with calendar spreads and straddles
+- Position sizing with Kelly criterion
+- Trading decision automation
 
 USAGE:
-    python main.py                    # Launch GUI
-    python main.py --help            # Show command-line options
-    python main.py --demo            # Launch with demo data
-    python main.py --symbol AAPL     # Analyze specific symbol (command-line mode)
+    python main.py --help                               # Show command-line options
+    python main.py --symbol AAPL                       # Basic analysis
+    python main.py --symbol AAPL --earnings            # With earnings analysis
+    python main.py --demo --symbol AAPL --earnings     # Demo mode
 
 DISCLAIMER: 
 This software is provided solely for educational and research purposes. 
@@ -67,7 +69,6 @@ if env_file.exists():
         logger.warning(f"Failed to parse .env file: {e}")
 
 # Import our modules with fallbacks
-HAS_GUI = False
 try:
     from options_trader import __version__
 except ImportError as e:
@@ -82,14 +83,6 @@ except ImportError as e:
     print(f"Core analyzer not available: {e}")
     print("Some features may not work. Install missing dependencies with: pip install -r requirements.txt")
     analyze_symbol = None
-
-try:
-    from options_trader.gui.interface import run_gui
-    HAS_GUI = True
-except ImportError as e:
-    logger.warning(f"GUI not available: {e}")
-    HAS_GUI = False
-    run_gui = None
 
 try:
     from options_trader.core.cli_formatter import create_enhanced_cli_formatter
@@ -365,17 +358,14 @@ def main():
                 risk_per_trade=getattr(args, 'risk_per_trade', None)
             )
         else:
-            # GUI mode
-            if not HAS_GUI or run_gui is None:
-                print("❌ GUI mode is not available due to missing dependencies.")
-                print("Install GUI dependencies with: pip install -r requirements.txt")
-                print("Or use command-line mode with: python main.py --symbol AAPL")
-                sys.exit(1)
-            
-            logger.info("Running in GUI mode")
-            print_version()
-            print("Starting GUI... (close terminal window to exit)")
-            run_gui()
+            # No GUI mode - show help
+            print("❌ GUI mode has been deprecated. Use command-line mode instead.")
+            print("\nExamples:")
+            print("  python main.py --symbol AAPL --earnings")
+            print("  python main.py --symbol AAPL --earnings --trade-construction")
+            print("  python main.py --demo --symbol AAPL --earnings --trade-construction")
+            print("\nFor full help: python main.py --help")
+            sys.exit(1)
     
     except KeyboardInterrupt:
         logger.info("Application interrupted by user")
