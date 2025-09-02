@@ -8,34 +8,52 @@
 
 ## ✨ Overview
 
-The **Advanced Options Trading Calculator** is a modular, production-ready system designed for sophisticated options analysis with a focus on **earnings volatility strategies**. Built for traders, researchers, and educational institutions who need comprehensive options analysis with professional-grade risk management.
+The **Advanced Options Trading Calculator** is a comprehensive, full-stack options trading platform combining sophisticated earnings volatility analysis with a professional React-based web interface. Built for traders, researchers, and educational institutions who need complete portfolio management and options analysis capabilities.
 
 ### 🎯 Core Philosophy
 - **Evidence-Based Analysis**: All recommendations backed by quantifiable metrics
 - **Risk-First Approach**: Comprehensive risk management and position sizing
 - **Educational Focus**: Designed for learning and research, not financial advice
-- **Professional Output**: Publication-ready reports and analysis
+- **Professional Platform**: Complete trading platform with dual CLI and web access
+- **Full-Stack Solution**: Python backend analysis engine + React frontend interface
 
 ## 🏗️ System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                 Advanced Options Calculator                 │
+│            Advanced Options Trading Platform               │
 ├─────────────────────────────────────────────────────────────┤
-│  📊 Earnings Calendar & Timing Analysis                    │
-│  🔧 Trade Construction & P&L Modeling                      │
-│  💰 Position Sizing & Risk Management                      │
-│  🚀 Automated Trading Decision Engine                      │
+│  🌐 REACT FRONTEND (Professional Web Interface)            │
+│  ├─ 👤 User Account Management & Preferences               │
+│  ├─ 📊 Portfolio Management & P&L Tracking                 │
+│  ├─ 🔍 Market Screening & Watchlists                       │
+│  ├─ 📚 Educational Content & Learning Paths                │
+│  └─ 📱 PWA Support & Responsive Design                     │
 ├─────────────────────────────────────────────────────────────┤
-│  🎨 Professional CLI + Markdown Reports                    │
+│  🐍 PYTHON BACKEND (Analysis Engine & CLI)                 │
+│  ├─ 📊 Earnings Calendar & Timing Analysis                 │
+│  ├─ 🔧 Trade Construction & P&L Modeling                   │
+│  ├─ 💰 Position Sizing & Risk Management                   │
+│  ├─ 🚀 Automated Trading Decision Engine                   │
+│  └─ 🎨 Professional CLI + Markdown Reports                 │
+├─────────────────────────────────────────────────────────────┤
 │  🌐 Multi-Provider Data Engine (Yahoo, Alpha Vantage+)     │
 │  ⚡ Graceful Degradation & Fallback Systems               │
+│  🔒 Security & Authentication Layer                        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## ✅ Key Features
 
-### 📊 **Earnings Calendar & Timing Analysis**
+### 🌐 **Frontend Web Platform**
+- **Portfolio Management**: Multi-portfolio tracking with real-time P&L, position management, and performance analytics
+- **Market Screening**: Advanced filtering with pre-built templates, watchlists, and AI-powered insights
+- **Educational Center**: Structured learning paths, progress tracking, and comprehensive content library
+- **User Account Management**: Complete profile management, trading preferences, and security settings
+- **Professional UI**: Modern React interface with responsive design and PWA capabilities
+- **Real-time Updates**: Live market data integration with React Query caching and error recovery
+
+### 📊 **Earnings Calendar & Timing Analysis (Backend)**
 - **Precise Trading Windows**: 15-minute entry/exit windows around earnings announcements
 - **Multi-Provider Data Integration**: Alpha Vantage, Yahoo Finance, Finnhub, Tradier with intelligent fallbacks
 - **Timezone Intelligence**: Automatic timezone detection with Eastern market fallback
@@ -74,9 +92,10 @@ The **Advanced Options Trading Calculator** is a modular, production-ready syste
 
 ### Prerequisites
 - **Python 3.13+** (recommended) or Python 3.9+
+- **Node.js 18+** for frontend development
 - Virtual environment (recommended)
 
-### Quick Start
+### Backend Setup (Python CLI/API)
 ```bash
 # Clone the repository
 git clone https://github.com/akgoparaju/iv-crush-options-calculator.git
@@ -95,7 +114,23 @@ python3 test_modular.py
 python3 main.py --version
 ```
 
+### Frontend Setup (React Web Platform)
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Access at http://localhost:5173
+```
+
 ### Dependencies
+
+**Backend (Python):**
 ```
 FreeSimpleGUI           # GUI framework
 yfinance                # Primary financial data
@@ -104,6 +139,20 @@ pandas                  # Data manipulation
 numpy                   # Numerical computing
 scipy                   # Scientific computing
 pytz                    # Timezone calculations
+```
+
+**Frontend (React):**
+```json
+{
+  "react": "^18.0.0",
+  "typescript": "^5.0.0",
+  "@tanstack/react-query": "^5.0.0",
+  "react-router-dom": "^6.0.0",
+  "tailwindcss": "^3.0.0",
+  "lucide-react": "^0.400.0",
+  "react-hook-form": "^7.0.0",
+  "zod": "^3.0.0"
+}
 ```
 
 ## ⚙️ Configuration
@@ -157,7 +206,23 @@ MAX_POSITION_PCT=0.05             # Max 5% per position
 
 ## 🚀 Usage
 
-### Command Line Interface
+### Web Interface (Professional Platform)
+```bash
+# Start React development server
+cd frontend
+npm run dev
+
+# Access the platform at http://localhost:5173
+```
+
+**Platform Features:**
+- **Dashboard** (`/`): Main options analysis interface
+- **Portfolio** (`/portfolio`): Multi-portfolio management and tracking
+- **Screening** (`/screening`): Advanced market screening and watchlists  
+- **Education** (`/education`): Learning center with structured paths
+- **Account** (`/account`): User profile and trading preferences
+
+### Command Line Interface (Analysis Engine)
 ```bash
 # Basic analysis
 python3 main.py --symbol AAPL
@@ -170,12 +235,6 @@ python3 main.py --demo --earnings --symbol AAPL
 
 # Custom parameters
 python3 main.py --symbol AAPL --earnings --expirations 3 --account-size 50000 --risk-per-trade 0.02
-```
-
-### GUI Mode
-```bash
-# Launch GUI (when dependencies available)
-python3 main.py
 ```
 
 ### Programmatic API
@@ -379,23 +438,44 @@ This project is licensed under the **Educational Use License** - see the [LICENS
 - ❌ Commercial use prohibited without permission
 - ❌ No warranty or financial advice provided
 
+## 📚 Documentation
+
+### Complete Platform Documentation
+- **[Frontend UI Guide](UI-docs/comprehensive-ui-guide.md)** - Complete testing procedures, usage instructions, and component documentation for the React web platform
+- **[Strategy Guide](earnings_iv_crush_strategy_complete_playbook.md)** - Complete earnings IV crush strategy documentation
+- **[API Reference](options_trader/)** - Backend code documentation and examples
+- **[Test Suite](test_modular.py)** - Comprehensive testing and validation examples
+
+### Additional Resources
+- **UI Implementation Docs**: `UI-docs/` folder contains detailed Phase 5 implementation documentation
+- **Backend Analysis**: Complete CLI system documentation in CLAUDE.md
+- **Configuration Guide**: Environment setup and API key configuration instructions
+
 ## 🙏 Acknowledgments
 
 - **Strategy Foundation**: Based on earnings volatility research and proven options strategies
 - **Data Providers**: Yahoo Finance, Alpha Vantage, Finnhub, Tradier APIs
-- **Python Ecosystem**: Built with pandas, numpy, scipy, and other excellent libraries
+- **Technology Stack**: Built with React, Python, pandas, numpy, scipy, and other excellent libraries
 - **Community**: Thanks to all contributors and users providing feedback
 
 ---
 
 <div align="center">
 
-**🚀 Ready to analyze? Get started with:**
+**🚀 Ready to analyze? Choose your interface:**
+
+**Web Platform:**
+```bash
+cd frontend && npm run dev
+# Access at http://localhost:5173
+```
+
+**CLI Analysis:**
 ```bash
 python3 main.py --demo --earnings --symbol AAPL
 ```
 
-**📖 Need help?** Check out the [Strategy Guide](earnings_iv_crush_strategy_complete_playbook.md) for comprehensive documentation
+**📖 Need help?** Check out the [Frontend UI Guide](UI-docs/comprehensive-ui-guide.md) and [Strategy Guide](earnings_iv_crush_strategy_complete_playbook.md)
 
 **⭐ Found this useful?** Please star this repository!
 

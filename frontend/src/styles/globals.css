@@ -1,0 +1,272 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Custom base styles for professional financial UI */
+  html {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  
+  body {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  
+  /* Custom scrollbar styles */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: theme('colors.slate.100');
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: theme('colors.slate.300');
+    border-radius: 3px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.slate.400');
+  }
+  
+  /* Dark mode scrollbar */
+  .dark ::-webkit-scrollbar-track {
+    background: theme('colors.slate.800');
+  }
+  
+  .dark ::-webkit-scrollbar-thumb {
+    background: theme('colors.slate.600');
+  }
+  
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.slate.500');
+  }
+}
+
+@layer components {
+  /* Professional button base styles */
+  .btn-base {
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
+  }
+  
+  .btn-primary {
+    @apply btn-base bg-primary-600 text-white hover:bg-primary-700;
+  }
+  
+  .btn-secondary {
+    @apply btn-base bg-slate-200 text-slate-900 hover:bg-slate-300;
+  }
+  
+  .btn-success {
+    @apply btn-base bg-success-600 text-white hover:bg-success-700;
+  }
+  
+  .btn-danger {
+    @apply btn-base bg-danger-600 text-white hover:bg-danger-700;
+  }
+  
+  .btn-ghost {
+    @apply btn-base bg-transparent text-slate-600 hover:bg-slate-100;
+  }
+  
+  /* Professional input base styles */
+  .input-base {
+    @apply block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder-slate-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500;
+  }
+  
+  .input-error {
+    @apply input-base border-danger-300 focus:border-danger-500 focus:ring-danger-500;
+  }
+  
+  .input-success {
+    @apply input-base border-success-300 focus:border-success-500 focus:ring-success-500;
+  }
+  
+  /* Professional card styles */
+  .card-base {
+    @apply rounded-lg border border-slate-200 bg-white shadow-soft;
+  }
+  
+  .card-header {
+    @apply px-6 py-4 border-b border-slate-200;
+  }
+  
+  .card-content {
+    @apply px-6 py-4;
+  }
+  
+  /* Status indicators */
+  .status-success {
+    @apply inline-flex items-center rounded-full bg-success-100 px-2.5 py-0.5 text-xs font-medium text-success-800;
+  }
+  
+  .status-danger {
+    @apply inline-flex items-center rounded-full bg-danger-100 px-2.5 py-0.5 text-xs font-medium text-danger-800;
+  }
+  
+  .status-warning {
+    @apply inline-flex items-center rounded-full bg-warning-100 px-2.5 py-0.5 text-xs font-medium text-warning-800;
+  }
+  
+  .status-info {
+    @apply inline-flex items-center rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-medium text-primary-800;
+  }
+  
+  /* Professional table styles */
+  .table-base {
+    @apply min-w-full divide-y divide-slate-200;
+  }
+  
+  .table-header {
+    @apply bg-slate-50;
+  }
+  
+  .table-header-cell {
+    @apply px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider;
+  }
+  
+  .table-body {
+    @apply bg-white divide-y divide-slate-200;
+  }
+  
+  .table-row {
+    @apply hover:bg-slate-50;
+  }
+  
+  .table-cell {
+    @apply px-6 py-4 whitespace-nowrap text-sm text-slate-900;
+  }
+  
+  /* Loading states */
+  .loading-shimmer {
+    @apply animate-pulse bg-slate-200;
+  }
+  
+  .loading-spinner {
+    @apply animate-spin h-5 w-5 text-primary-600;
+  }
+  
+  /* Professional form layouts */
+  .form-group {
+    @apply space-y-1;
+  }
+  
+  .form-label {
+    @apply block text-sm font-medium text-slate-700;
+  }
+  
+  .form-label-required::after {
+    content: " *";
+    @apply text-danger-500;
+  }
+  
+  .form-error {
+    @apply text-sm text-danger-600;
+  }
+  
+  .form-success {
+    @apply text-sm text-success-600;
+  }
+  
+  .form-help {
+    @apply text-sm text-slate-500;
+  }
+  
+  /* Professional spacing utilities */
+  .section-spacing {
+    @apply py-8 sm:py-12;
+  }
+  
+  .content-spacing {
+    @apply space-y-6;
+  }
+  
+  .tight-spacing {
+    @apply space-y-4;
+  }
+  
+  /* Professional typography */
+  .heading-xl {
+    @apply text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl;
+  }
+  
+  .heading-lg {
+    @apply text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl;
+  }
+  
+  .heading-md {
+    @apply text-xl font-semibold text-slate-900 sm:text-2xl;
+  }
+  
+  .heading-sm {
+    @apply text-lg font-semibold text-slate-900;
+  }
+  
+  .text-body {
+    @apply text-slate-600 text-base leading-relaxed;
+  }
+  
+  .text-muted {
+    @apply text-slate-500 text-sm;
+  }
+  
+  /* Professional shadows and effects */
+  .shadow-card {
+    @apply shadow-soft;
+  }
+  
+  .shadow-modal {
+    @apply shadow-strong;
+  }
+  
+  .hover-lift {
+    @apply transition-transform hover:scale-105;
+  }
+  
+  .hover-glow {
+    @apply transition-shadow hover:shadow-medium;
+  }
+}
+
+@layer utilities {
+  /* Custom utilities for financial data display */
+  .font-mono-numbers {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+  
+  .text-financial {
+    @apply font-mono-numbers;
+  }
+  
+  /* Screen reader only content */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  
+  /* Focus ring utilities */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+  }
+  
+  .focus-ring-inset {
+    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .dark {
+    color-scheme: dark;
+  }
+}

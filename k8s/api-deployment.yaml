@@ -1,0 +1,171 @@
+# FastAPI Backend Deployment for Options Trading Calculator
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+  namespace: options-trading
+  labels:
+    app: options-trading-api
+    component: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: options-trading-api
+  template:
+    metadata:
+      labels:
+        app: options-trading-api
+    spec:
+      containers:
+      - name: api
+        image: options-trading-api:latest
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: DATABASE_URL
+          value: "postgresql+asyncpg://postgres:$(POSTGRES_PASSWORD)@postgres-service:5432/$(DB_NAME)"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: password
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: options-trading-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: options-trading-config
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: options-trading-config
+              key: DB_NAME
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: options-trading-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: options-trading-config
+              key: REDIS_PORT
+        - name: REDIS_URL
+          value: "redis://$(REDIS_HOST):$(REDIS_PORT)/0"
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-secrets
+              key: secret-key
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-secrets
+              key: jwt-secret-key
+        - name: ALPHA_VANTAGE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-secrets
+              key: alpha-vantage-api-key
+        - name: FINNHUB_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-secrets
+              key: finnhub-api-key
+        - name: TRADIER_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: api-secrets
+              key: tradier-token
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: options-trading-config
+              key: ENVIRONMENT
+        - name: DEBUG
+          valueFrom:
+            configMapKeyRef:
+              name: options-trading-config
+              key: DEBUG
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: options-trading-config
+              key: LOG_LEVEL
+        - name: ACCESS_TOKEN_EXPIRE_MINUTES
+          valueFrom:
+            configMapKeyRef:
+              name: options-trading-config
+              key: ACCESS_TOKEN_EXPIRE_MINUTES
+        - name: REFRESH_TOKEN_EXPIRE_DAYS
+          valueFrom:
+            configMapKeyRef:
+              name: options-trading-config
+              key: REFRESH_TOKEN_EXPIRE_DAYS
+        - name: DECISION_FRAMEWORK
+          valueFrom:
+            configMapKeyRef:
+              name: options-trading-config
+              key: DECISION_FRAMEWORK
+        - name: ORIGINAL_STRATEGY_STRICT
+          valueFrom:
+            configMapKeyRef:
+              name: options-trading-config
+              key: ORIGINAL_STRATEGY_STRICT
+        - name: ACCOUNT_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: options-trading-config
+              key: ACCOUNT_SIZE
+        - name: RISK_PER_TRADE
+          valueFrom:
+            configMapKeyRef:
+              name: options-trading-config
+              key: RISK_PER_TRADE
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: logs-volume
+          mountPath: /app/logs
+      volumes:
+      - name: logs-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: options-trading
+  labels:
+    app: options-trading-api
+spec:
+  selector:
+    app: options-trading-api
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP

@@ -1,0 +1,9 @@
+# Kubernetes Namespace for Options Trading Calculator
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: options-trading
+  labels:
+    app: options-trading-calculator
+    version: v2.0.0
+    environment: production

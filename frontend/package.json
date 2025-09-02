@@ -1,0 +1,83 @@
+{
+  "name": "options-trading-calculator-frontend",
+  "version": "2.0.0",
+  "description": "Professional React frontend for Advanced Options Trading Calculator",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "build:pwa": "tsc && vite build --mode pwa",
+    "preview": "vite preview",
+    "preview:pwa": "vite preview --mode pwa",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint src --ext ts,tsx --fix",
+    "type-check": "tsc --noEmit",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "test:pwa": "vitest run --reporter=verbose --config vitest.pwa.config.ts",
+    "serve:https": "vite preview --https --host",
+    "analyze": "npx vite-bundle-analyzer dist/assets"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.3.2",
+    "@tanstack/react-query": "^5.85.9",
+    "@tanstack/react-query-devtools": "^5.85.9",
+    "axios": "^1.6.2",
+    "clsx": "^2.0.0",
+    "d3": "^7.8.0",
+    "date-fns": "^2.30.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.1",
+    "lucide-react": "^0.292.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hook-form": "^7.48.2",
+    "react-query": "^3.39.3",
+    "react-router-dom": "^6.20.1",
+    "react-window": "^1.8.8",
+    "recharts": "^2.8.0",
+    "tailwind-merge": "^2.0.0",
+    "web-vitals": "^3.5.0",
+    "workbox-webpack-plugin": "^7.0.0",
+    "workbox-window": "^7.0.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@headlessui/react": "^1.7.17",
+    "@heroicons/react": "^2.0.18",
+    "@testing-library/jest-dom": "^6.1.4",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^14.5.1",
+    "@types/d3": "^7.4.0",
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@types/react-window": "^1.8.6",
+    "@typescript-eslint/eslint-plugin": "^6.10.0",
+    "@typescript-eslint/parser": "^6.10.0",
+    "@vitejs/plugin-react": "^4.1.1",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.53.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.4",
+    "jsdom": "^23.0.1",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5",
+    "typescript": "^5.2.2",
+    "vite": "^4.5.0",
+    "vitest": "^0.34.6"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

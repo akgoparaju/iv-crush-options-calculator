@@ -1,0 +1,361 @@
+# ConfigMap for PostgreSQL Initialization SQL
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-sql
+  namespace: options-trading
+  labels:
+    app: postgres
+    component: database
+data:
+  init.sql: |
+    -- Database initialization for Advanced Options Trading Calculator v2.0.0
+    -- This script sets up the complete database schema for Phase 5 implementation
+    
+    -- Enable UUID generation extension
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    
+    -- Users table for authentication (Phase 5.1)
+    CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        email VARCHAR(255) UNIQUE NOT NULL,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        first_name VARCHAR(50),
+        last_name VARCHAR(50),
+        is_active BOOLEAN DEFAULT TRUE,
+        is_verified BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        last_login TIMESTAMP WITH TIME ZONE
+    );
+    
+    -- Create indexes for users table
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+    CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active);
+    
+    -- Refresh tokens table for JWT authentication
+    CREATE TABLE IF NOT EXISTS refresh_tokens (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        token_hash VARCHAR(255) NOT NULL,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        is_revoked BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- Create indexes for refresh_tokens table
+    CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+    CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_refresh_tokens_revoked ON refresh_tokens(is_revoked);
+    
+    -- Portfolios table for portfolio management (Phase 5.2)
+    CREATE TABLE IF NOT EXISTS portfolios (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        description TEXT,
+        initial_capital DECIMAL(15,2) NOT NULL DEFAULT 100000.00,
+        current_value DECIMAL(15,2) NOT NULL DEFAULT 100000.00,
+        available_cash DECIMAL(15,2) NOT NULL DEFAULT 100000.00,
+        total_pnl DECIMAL(15,2) DEFAULT 0.00,
+        daily_pnl DECIMAL(15,2) DEFAULT 0.00,
+        settings JSONB DEFAULT '{}',
+        is_default BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- Create indexes for portfolios table
+    CREATE INDEX IF NOT EXISTS idx_portfolios_user_id ON portfolios(user_id);
+    CREATE INDEX IF NOT EXISTS idx_portfolios_default ON portfolios(user_id, is_default);
+    
+    -- Ensure each user has only one default portfolio
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_portfolios_user_default 
+        ON portfolios(user_id) WHERE is_default = TRUE;
+    
+    -- Positions table for tracking individual trades
+    CREATE TABLE IF NOT EXISTS positions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        portfolio_id UUID REFERENCES portfolios(id) ON DELETE CASCADE,
+        symbol VARCHAR(20) NOT NULL,
+        strategy_type VARCHAR(50) NOT NULL, -- 'calendar_spread', 'straddle', 'iron_condor', etc.
+        quantity INTEGER NOT NULL,
+        entry_price DECIMAL(10,4) NOT NULL,
+        current_price DECIMAL(10,4),
+        pnl DECIMAL(15,2) DEFAULT 0.00,
+        pnl_percentage DECIMAL(8,4) DEFAULT 0.00,
+        max_profit DECIMAL(15,2),
+        max_loss DECIMAL(15,2),
+        breakeven_points DECIMAL(10,4)[], -- Array of breakeven prices
+        greeks JSONB DEFAULT '{}', -- Delta, gamma, theta, vega
+        entry_date DATE NOT NULL,
+        expiration_date DATE,
+        exit_date DATE,
+        exit_price DECIMAL(10,4),
+        exit_reason VARCHAR(50), -- 'profit_target', 'stop_loss', 'expiration', 'manual'
+        status VARCHAR(20) DEFAULT 'open', -- 'open', 'closed', 'expired'
+        notes TEXT,
+        metadata JSONB DEFAULT '{}', -- Additional trade-specific data
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- Create indexes for positions table
+    CREATE INDEX IF NOT EXISTS idx_positions_portfolio_id ON positions(portfolio_id);
+    CREATE INDEX IF NOT EXISTS idx_positions_symbol ON positions(symbol);
+    CREATE INDEX IF NOT EXISTS idx_positions_strategy_type ON positions(strategy_type);
+    CREATE INDEX IF NOT EXISTS idx_positions_status ON positions(status);
+    CREATE INDEX IF NOT EXISTS idx_positions_entry_date ON positions(entry_date);
+    CREATE INDEX IF NOT EXISTS idx_positions_expiration_date ON positions(expiration_date);
+    
+    -- Position legs table for complex multi-leg strategies
+    CREATE TABLE IF NOT EXISTS position_legs (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        position_id UUID REFERENCES positions(id) ON DELETE CASCADE,
+        option_type VARCHAR(4) NOT NULL, -- 'call' or 'put'
+        strike_price DECIMAL(10,4) NOT NULL,
+        expiration_date DATE NOT NULL,
+        action VARCHAR(4) NOT NULL, -- 'buy' or 'sell'
+        quantity INTEGER NOT NULL,
+        entry_price DECIMAL(10,4) NOT NULL,
+        current_price DECIMAL(10,4),
+        implied_volatility DECIMAL(8,4),
+        delta DECIMAL(8,4),
+        gamma DECIMAL(8,4),
+        theta DECIMAL(8,4),
+        vega DECIMAL(8,4),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- Create indexes for position_legs table
+    CREATE INDEX IF NOT EXISTS idx_position_legs_position_id ON position_legs(position_id);
+    CREATE INDEX IF NOT EXISTS idx_position_legs_option_type ON position_legs(option_type);
+    CREATE INDEX IF NOT EXISTS idx_position_legs_expiration ON position_legs(expiration_date);
+    
+    -- Screens table for automated screening (Phase 5.3)
+    CREATE TABLE IF NOT EXISTS screens (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        description TEXT,
+        criteria JSONB NOT NULL, -- Screening criteria (IV rank, volume, etc.)
+        symbols TEXT[], -- Array of symbols to screen
+        frequency VARCHAR(20) NOT NULL DEFAULT 'hourly', -- 'realtime', 'hourly', 'daily'
+        is_active BOOLEAN DEFAULT TRUE,
+        last_run_at TIMESTAMP WITH TIME ZONE,
+        results_count INTEGER DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, name)
+    );
+    
+    -- Create indexes for screens table
+    CREATE INDEX IF NOT EXISTS idx_screens_user_id ON screens(user_id);
+    CREATE INDEX IF NOT EXISTS idx_screens_active ON screens(is_active);
+    CREATE INDEX IF NOT EXISTS idx_screens_frequency ON screens(frequency);
+    CREATE INDEX IF NOT EXISTS idx_screens_last_run ON screens(last_run_at);
+    
+    -- Screen results table for storing screening outcomes
+    CREATE TABLE IF NOT EXISTS screen_results (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        screen_id UUID REFERENCES screens(id) ON DELETE CASCADE,
+        symbol VARCHAR(20) NOT NULL,
+        score DECIMAL(5,2) NOT NULL, -- Screening score (0-100)
+        signals JSONB NOT NULL, -- Individual signal results
+        market_data JSONB, -- Current market data snapshot
+        trade_recommendation JSONB, -- Suggested trade structure
+        confidence DECIMAL(5,2), -- Confidence level (0-100)
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- Create indexes for screen_results table
+    CREATE INDEX IF NOT EXISTS idx_screen_results_screen_id ON screen_results(screen_id);
+    CREATE INDEX IF NOT EXISTS idx_screen_results_symbol ON screen_results(symbol);
+    CREATE INDEX IF NOT EXISTS idx_screen_results_score ON screen_results(score DESC);
+    CREATE INDEX IF NOT EXISTS idx_screen_results_created_at ON screen_results(created_at DESC);
+    
+    -- Alerts table for notifications
+    CREATE TABLE IF NOT EXISTS alerts (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        screen_id UUID REFERENCES screens(id) ON DELETE CASCADE,
+        symbol VARCHAR(20) NOT NULL,
+        alert_type VARCHAR(50) NOT NULL, -- 'new_opportunity', 'price_target', 'expiration_warning'
+        severity VARCHAR(20) NOT NULL DEFAULT 'medium', -- 'low', 'medium', 'high', 'critical'
+        title VARCHAR(200) NOT NULL,
+        message TEXT NOT NULL,
+        data JSONB, -- Additional alert data
+        is_read BOOLEAN DEFAULT FALSE,
+        is_dismissed BOOLEAN DEFAULT FALSE,
+        expires_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- Create indexes for alerts table
+    CREATE INDEX IF NOT EXISTS idx_alerts_user_id ON alerts(user_id);
+    CREATE INDEX IF NOT EXISTS idx_alerts_screen_id ON alerts(screen_id);
+    CREATE INDEX IF NOT EXISTS idx_alerts_type ON alerts(alert_type);
+    CREATE INDEX IF NOT EXISTS idx_alerts_severity ON alerts(severity);
+    CREATE INDEX IF NOT EXISTS idx_alerts_read ON alerts(is_read);
+    CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON alerts(created_at DESC);
+    
+    -- Educational content tables (Phase 5.4)
+    CREATE TABLE IF NOT EXISTS educational_content (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        title VARCHAR(200) NOT NULL,
+        slug VARCHAR(200) UNIQUE NOT NULL,
+        content_type VARCHAR(50) NOT NULL, -- 'article', 'video', 'tutorial', 'quiz'
+        difficulty_level VARCHAR(20) NOT NULL DEFAULT 'beginner', -- 'beginner', 'intermediate', 'advanced'
+        category VARCHAR(100) NOT NULL, -- 'options_basics', 'strategies', 'risk_management', etc.
+        tags TEXT[], -- Array of tags
+        content TEXT, -- Main content (markdown)
+        metadata JSONB DEFAULT '{}', -- Additional content metadata
+        author VARCHAR(100),
+        estimated_reading_time INTEGER, -- In minutes
+        is_published BOOLEAN DEFAULT FALSE,
+        publish_date DATE,
+        view_count INTEGER DEFAULT 0,
+        rating DECIMAL(3,2) DEFAULT 0.00, -- Average rating (0-5)
+        rating_count INTEGER DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- Create indexes for educational_content table
+    CREATE INDEX IF NOT EXISTS idx_educational_content_slug ON educational_content(slug);
+    CREATE INDEX IF NOT EXISTS idx_educational_content_type ON educational_content(content_type);
+    CREATE INDEX IF NOT EXISTS idx_educational_content_difficulty ON educational_content(difficulty_level);
+    CREATE INDEX IF NOT EXISTS idx_educational_content_category ON educational_content(category);
+    CREATE INDEX IF NOT EXISTS idx_educational_content_published ON educational_content(is_published);
+    CREATE INDEX IF NOT EXISTS idx_educational_content_rating ON educational_content(rating DESC);
+    
+    -- Learning paths table
+    CREATE TABLE IF NOT EXISTS learning_paths (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        name VARCHAR(200) NOT NULL,
+        slug VARCHAR(200) UNIQUE NOT NULL,
+        description TEXT,
+        difficulty_level VARCHAR(20) NOT NULL DEFAULT 'beginner',
+        estimated_duration INTEGER, -- In minutes
+        content_ids UUID[], -- Array of educational_content IDs in order
+        prerequisites UUID[], -- Array of prerequisite learning_path IDs
+        is_published BOOLEAN DEFAULT FALSE,
+        completion_count INTEGER DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- Create indexes for learning_paths table
+    CREATE INDEX IF NOT EXISTS idx_learning_paths_slug ON learning_paths(slug);
+    CREATE INDEX IF NOT EXISTS idx_learning_paths_difficulty ON learning_paths(difficulty_level);
+    CREATE INDEX IF NOT EXISTS idx_learning_paths_published ON learning_paths(is_published);
+    
+    -- User progress tracking
+    CREATE TABLE IF NOT EXISTS user_progress (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        content_id UUID REFERENCES educational_content(id) ON DELETE CASCADE,
+        learning_path_id UUID REFERENCES learning_paths(id) ON DELETE CASCADE,
+        progress_type VARCHAR(20) NOT NULL, -- 'content', 'path'
+        status VARCHAR(20) DEFAULT 'not_started', -- 'not_started', 'in_progress', 'completed'
+        progress_percentage INTEGER DEFAULT 0, -- 0-100
+        time_spent INTEGER DEFAULT 0, -- In minutes
+        last_accessed TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        completed_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, content_id),
+        UNIQUE(user_id, learning_path_id)
+    );
+    
+    -- Create indexes for user_progress table
+    CREATE INDEX IF NOT EXISTS idx_user_progress_user_id ON user_progress(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_progress_content_id ON user_progress(content_id);
+    CREATE INDEX IF NOT EXISTS idx_user_progress_path_id ON user_progress(learning_path_id);
+    CREATE INDEX IF NOT EXISTS idx_user_progress_status ON user_progress(status);
+    
+    -- Quiz questions table
+    CREATE TABLE IF NOT EXISTS quiz_questions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        content_id UUID REFERENCES educational_content(id) ON DELETE CASCADE,
+        question TEXT NOT NULL,
+        question_type VARCHAR(20) NOT NULL DEFAULT 'multiple_choice', -- 'multiple_choice', 'true_false', 'text'
+        options JSONB, -- For multiple choice questions
+        correct_answer TEXT NOT NULL,
+        explanation TEXT,
+        difficulty_level VARCHAR(20) DEFAULT 'beginner',
+        order_index INTEGER DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- Create indexes for quiz_questions table
+    CREATE INDEX IF NOT EXISTS idx_quiz_questions_content_id ON quiz_questions(content_id);
+    CREATE INDEX IF NOT EXISTS idx_quiz_questions_difficulty ON quiz_questions(difficulty_level);
+    
+    -- User quiz attempts
+    CREATE TABLE IF NOT EXISTS quiz_attempts (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        content_id UUID REFERENCES educational_content(id) ON DELETE CASCADE,
+        score DECIMAL(5,2) NOT NULL, -- Percentage score (0-100)
+        total_questions INTEGER NOT NULL,
+        correct_answers INTEGER NOT NULL,
+        time_taken INTEGER, -- In seconds
+        answers JSONB NOT NULL, -- User answers with timestamps
+        passed BOOLEAN DEFAULT FALSE, -- Based on passing threshold
+        attempt_number INTEGER DEFAULT 1,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- Create indexes for quiz_attempts table
+    CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user_id ON quiz_attempts(user_id);
+    CREATE INDEX IF NOT EXISTS idx_quiz_attempts_content_id ON quiz_attempts(content_id);
+    CREATE INDEX IF NOT EXISTS idx_quiz_attempts_score ON quiz_attempts(score DESC);
+    
+    -- Create function to update updated_at timestamp
+    CREATE OR REPLACE FUNCTION update_updated_at_column()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+    END;
+    $$ language 'plpgsql';
+    
+    -- Create triggers for updated_at columns
+    CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    CREATE TRIGGER update_portfolios_updated_at BEFORE UPDATE ON portfolios FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    CREATE TRIGGER update_positions_updated_at BEFORE UPDATE ON positions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    CREATE TRIGGER update_position_legs_updated_at BEFORE UPDATE ON position_legs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    CREATE TRIGGER update_screens_updated_at BEFORE UPDATE ON screens FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    CREATE TRIGGER update_educational_content_updated_at BEFORE UPDATE ON educational_content FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    CREATE TRIGGER update_learning_paths_updated_at BEFORE UPDATE ON learning_paths FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    
+    -- Insert sample educational content
+    INSERT INTO educational_content (title, slug, content_type, difficulty_level, category, tags, content, author, estimated_reading_time, is_published, publish_date, view_count, rating, rating_count) VALUES
+    ('Options Basics: Calls and Puts', 'options-basics-calls-puts', 'article', 'beginner', 'options_basics', ARRAY['options', 'calls', 'puts', 'basics'], 
+     '# Options Basics: Calls and Puts\n\nLearn the fundamental building blocks of options trading...', 'Options Academy', 15, TRUE, CURRENT_DATE, 0, 4.5, 0),
+    
+    ('Understanding Implied Volatility', 'understanding-implied-volatility', 'article', 'intermediate', 'volatility', ARRAY['IV', 'volatility', 'pricing'], 
+     '# Understanding Implied Volatility\n\nImplied volatility is one of the most important concepts...', 'Options Academy', 20, TRUE, CURRENT_DATE, 0, 4.2, 0),
+    
+    ('Calendar Spreads Strategy', 'calendar-spreads-strategy', 'tutorial', 'intermediate', 'strategies', ARRAY['calendar', 'spreads', 'time decay'], 
+     '# Calendar Spreads Strategy\n\nCalendar spreads are a versatile options strategy...', 'Options Academy', 25, TRUE, CURRENT_DATE, 0, 4.7, 0),
+    
+    ('Risk Management in Options Trading', 'risk-management-options', 'article', 'advanced', 'risk_management', ARRAY['risk', 'management', 'position sizing'], 
+     '# Risk Management in Options Trading\n\nProper risk management is crucial for long-term success...', 'Options Academy', 30, TRUE, CURRENT_DATE, 0, 4.8, 0);
+    
+    -- Insert sample learning paths
+    INSERT INTO learning_paths (name, slug, description, difficulty_level, estimated_duration, is_published, completion_count) VALUES
+    ('Options Trading Fundamentals', 'options-fundamentals', 'Complete beginner guide to options trading covering all essential concepts', 'beginner', 120, TRUE, 0),
+    ('Advanced Options Strategies', 'advanced-strategies', 'Master complex options strategies for experienced traders', 'advanced', 180, TRUE, 0),
+    ('Volatility Trading Mastery', 'volatility-mastery', 'Deep dive into volatility-based trading strategies', 'intermediate', 150, TRUE, 0);
+    
+    -- Create default admin user (password: admin123)
+    -- Note: This is for development only - remove or change in production
+    INSERT INTO users (email, username, password_hash, first_name, last_name, is_active, is_verified) VALUES
+    ('admin@optionstradingcalculator.com', 'admin', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/2s4f3NWzDGO.Y3.JG', 'Admin', 'User', TRUE, TRUE)
+    ON CONFLICT (email) DO NOTHING;
+    
+    COMMIT;

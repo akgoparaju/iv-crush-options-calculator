@@ -1,0 +1,79 @@
+# Kustomization file for Options Trading Calculator
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Metadata
+metadata:
+  name: options-trading-calculator
+  namespace: options-trading
+
+# Common labels applied to all resources
+commonLabels:
+  app.kubernetes.io/name: options-trading-calculator
+  app.kubernetes.io/version: "2.0.0"
+  app.kubernetes.io/component: options-trading-platform
+  app.kubernetes.io/part-of: financial-trading-suite
+
+# Resources to include
+resources:
+  - namespace.yaml
+  - secrets.yaml
+  - configmap.yaml
+  - postgres-init-configmap.yaml
+  - persistent-volumes.yaml
+  - postgres-deployment.yaml
+  - redis-deployment.yaml
+  - api-deployment.yaml
+  - ingress.yaml
+
+# Images with specific tags
+images:
+  - name: options-trading-api
+    newTag: "2.0.0"
+  - name: postgres
+    newTag: "15-alpine"
+  - name: redis
+    newTag: "7-alpine"
+
+# ConfigMap generator for additional configurations
+configMapGenerator:
+  - name: deployment-config
+    literals:
+      - DEPLOYMENT_ENV=production
+      - API_VERSION=v2.0.0
+      - FEATURE_FLAGS=auth,portfolio,screening,education
+
+# Secret generator (use with caution - prefer external secret management)
+secretGenerator:
+  - name: deployment-secrets
+    literals:
+      - DEPLOYMENT_KEY=changeme
+
+# Namespace for all resources
+namespace: options-trading
+
+# Common annotations
+commonAnnotations:
+  deployment.kubernetes.io/revision: "1"
+  kubernetes.io/managed-by: "kustomize"
+
+# Resource patches
+patches:
+  - target:
+      kind: Deployment
+      name: api-deployment
+    patch: |-
+      - op: add
+        path: /spec/template/metadata/annotations/prometheus.io~1scrape
+        value: "true"
+      - op: add
+        path: /spec/template/metadata/annotations/prometheus.io~1port
+        value: "8000"
+      - op: add
+        path: /spec/template/metadata/annotations/prometheus.io~1path
+        value: "/metrics"
+
+# Replica configuration for different environments
+replicas:
+  - name: api-deployment
+    count: 3

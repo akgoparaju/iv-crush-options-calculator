@@ -1,0 +1,32 @@
+# ConfigMap for Options Trading Calculator
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: options-trading-config
+  namespace: options-trading
+data:
+  # Database Configuration
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "options_trading"
+  
+  # Redis Configuration
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  
+  # Application Settings
+  ENVIRONMENT: "production"
+  DEBUG: "false"
+  LOG_LEVEL: "INFO"
+  
+  # Strategy Configuration
+  DECISION_FRAMEWORK: "original"
+  ORIGINAL_STRATEGY_STRICT: "true"
+  
+  # Account Settings
+  ACCOUNT_SIZE: "100000.0"
+  RISK_PER_TRADE: "0.02"
+  
+  # JWT Settings
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  REFRESH_TOKEN_EXPIRE_DAYS: "7"

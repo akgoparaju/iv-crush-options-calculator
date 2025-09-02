@@ -48,6 +48,7 @@ GEMINI.md
 
 # Documentation folder (contains private development notes)
 docs/
+*docs/
 
 # Archive folder (legacy code not used in current system)
 archive/

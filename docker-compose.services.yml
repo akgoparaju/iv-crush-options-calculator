@@ -1,0 +1,51 @@
+# External Services Only - Redis and PostgreSQL
+# Run this separately from your main application
+# Usage: docker-compose -f docker-compose.services.yml up -d
+# 
+# Custom ports to avoid conflicts:
+# - PostgreSQL: 5430 (instead of 5432)
+# - Redis: 6479 (instead of 6379)
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: trade_calc_postgres
+    environment:
+      POSTGRES_DB: options_trading
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5430:5432"  # Host:Container - avoiding standard 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Optional: Initialize database with schema
+      # - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: trade_calc_redis
+    ports:
+      - "6479:6379"  # Host:Container - avoiding standard 6379
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
