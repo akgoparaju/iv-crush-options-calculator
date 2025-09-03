@@ -26,32 +26,10 @@ except ImportError:
     HAS_NUMPY = False
     np = None
 
+# Import the unified OptionQuote from trade_construction
+from .trade_construction import OptionQuote
+
 logger = logging.getLogger("options_trader.straddle_construction")
-
-
-@dataclass
-class OptionQuote:
-    """Individual option quote data"""
-    symbol: str
-    strike: float
-    expiration: str
-    option_type: str  # "call" or "put"
-    bid: float
-    ask: float
-    last_price: float
-    volume: int
-    open_interest: int
-    implied_volatility: float
-    delta: float = 0.0
-    gamma: float = 0.0
-    theta: float = 0.0
-    vega: float = 0.0
-    
-    def mid_price(self) -> float:
-        """Calculate mid price from bid/ask"""
-        if self.bid > 0 and self.ask > 0 and self.ask >= self.bid:
-            return (self.bid + self.ask) / 2.0
-        return self.last_price if self.last_price > 0 else 0.0
 
 
 @dataclass
@@ -89,22 +67,73 @@ class StraddleTrade:
     
     def __post_init__(self):
         """Calculate derived metrics"""
-        self._calculate_greeks()
+        # Note: Greeks calculation requires underlying_price parameter
+        # Will be called separately by the construction method
         self._calculate_quality_metrics()
     
-    def _calculate_greeks(self):
-        """Calculate net Greeks for the straddle position"""
-        # Short straddle: negative call delta + negative put delta
-        self.net_delta = -self.call_option.delta - self.put_option.delta
-        self.net_gamma = -(self.call_option.gamma + self.put_option.gamma)
-        self.net_theta = -(self.call_option.theta + self.put_option.theta)  # Positive for short
-        self.net_vega = -(self.call_option.vega + self.put_option.vega)
+    def _calculate_greeks(self, underlying_price: float = None):
+        """Calculate net Greeks for the straddle position using GreeksCalculator"""
+        try:
+            from .greeks import GreeksCalculator
+            from datetime import datetime, timedelta
+            
+            # Skip Greeks calculation if no underlying price provided
+            if underlying_price is None:
+                logger.warning("Greeks calculation skipped: no underlying price provided")
+                return
+            
+            logger.info(f"Calculating straddle Greeks: price=${underlying_price:.2f}, call_iv={self.call_option.implied_volatility:.4f}, put_iv={self.put_option.implied_volatility:.4f}")
+            
+            calculator = GreeksCalculator()
+            
+            # Calculate days to expiration
+            try:
+                exp_date = datetime.strptime(self.expiration, "%Y-%m-%d")
+                days_to_expiry = (exp_date - datetime.now()).days
+                days_to_expiry = max(days_to_expiry, 0.1)  # Minimum of 0.1 days
+            except:
+                days_to_expiry = 1  # Default fallback
+            
+            logger.info(f"Days to expiry: {days_to_expiry}")
+            
+            # Calculate Greeks for call option
+            call_greeks = calculator.calculate_option_greeks(
+                self.call_option, 
+                underlying_price, 
+                days_to_expiry
+            )
+            
+            # Calculate Greeks for put option  
+            put_greeks = calculator.calculate_option_greeks(
+                self.put_option,
+                underlying_price,
+                days_to_expiry
+            )
+            
+            logger.info(f"Call Greeks: δ={call_greeks.delta:.4f}, γ={call_greeks.gamma:.4f}, θ={call_greeks.theta:.4f}, ν={call_greeks.vega:.4f}")
+            logger.info(f"Put Greeks: δ={put_greeks.delta:.4f}, γ={put_greeks.gamma:.4f}, θ={put_greeks.theta:.4f}, ν={put_greeks.vega:.4f}")
+            
+            # Short straddle: negative call delta + negative put delta
+            self.net_delta = -(call_greeks.delta + put_greeks.delta)
+            self.net_gamma = -(call_greeks.gamma + put_greeks.gamma)
+            self.net_theta = -(call_greeks.theta + put_greeks.theta)  # Positive for short position
+            self.net_vega = -(call_greeks.vega + put_greeks.vega)
+            
+            logger.info(f"Straddle Net Greeks: δ={self.net_delta:.4f}, γ={self.net_gamma:.4f}, θ={self.net_theta:.4f}, ν={self.net_vega:.4f}")
+            
+        except Exception as e:
+            logger.warning(f"Greeks calculation failed: {e}. Using zero Greeks.")
+            # Fallback to zeros if calculation fails
+            self.net_delta = 0.0
+            self.net_gamma = 0.0
+            self.net_theta = 0.0
+            self.net_vega = 0.0
     
     def _calculate_quality_metrics(self):
         """Calculate trade quality assessment metrics"""
         # Bid/ask spread analysis
-        call_mid = self.call_option.mid_price()
-        put_mid = self.put_option.mid_price()
+        call_mid = self.call_option.mid_price
+        put_mid = self.put_option.mid_price
         
         if call_mid > 0 and put_mid > 0:
             call_spread_pct = (self.call_option.ask - self.call_option.bid) / call_mid if call_mid > 0 else 0
@@ -165,7 +194,7 @@ class StraddleConstructor:
                 return None
             
             # Calculate straddle metrics
-            net_credit = call_option.mid_price() + put_option.mid_price()
+            net_credit = call_option.mid_price + put_option.mid_price
             max_profit = net_credit  # Maximum profit if stock stays at strike
             breakeven_upper = atm_strike + net_credit
             breakeven_lower = atm_strike - net_credit
@@ -182,6 +211,9 @@ class StraddleConstructor:
                 breakeven_upper=breakeven_upper,
                 breakeven_lower=breakeven_lower
             )
+            
+            # Calculate Greeks using the existing GreeksCalculator
+            straddle._calculate_greeks(current_price)
             
             # Calculate probability of profit (basic approximation)
             straddle.probability_of_profit = self._calculate_pop(current_price, straddle)
@@ -403,12 +435,12 @@ class StraddleConstructor:
     def _calculate_straddle_pnl(self, straddle: StraddleTrade, stock_price_at_exp: float) -> float:
         """Calculate P&L at expiration for given stock price"""
         # Short call P&L
-        call_pnl = straddle.call_option.mid_price()  # Credit received
+        call_pnl = straddle.call_option.mid_price  # Credit received
         if stock_price_at_exp > straddle.strike:
             call_pnl -= (stock_price_at_exp - straddle.strike)  # Assignment cost
         
         # Short put P&L
-        put_pnl = straddle.put_option.mid_price()  # Credit received
+        put_pnl = straddle.put_option.mid_price  # Credit received
         if stock_price_at_exp < straddle.strike:
             put_pnl -= (straddle.strike - stock_price_at_exp)  # Assignment cost
         

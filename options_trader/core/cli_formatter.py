@@ -423,7 +423,7 @@ class EnhancedCLIFormatter:
         # Analysis summary
         recommendation = calendar_data.get("recommendation", "Unknown")
         signal_count = calendar_data.get("signal_count", 0)
-        expected_move = calendar_data.get("expected_move_pct", 0)
+        expected_move = calendar_data.get("expected_move_pct")
         
         # Color-coded recommendation based on signal strength
         if signal_count == 3:
@@ -433,14 +433,36 @@ class EnhancedCLIFormatter:
         else:
             rec_display = f"🔴 {recommendation} (Weak)"
         
+        # Safe formatting for expected move (handle None values)
+        expected_move_display = f"{expected_move:.1f}%" if expected_move is not None else "N/A"
+        
         summary_content = [
             f"Strategy Recommendation: {rec_display}",
             f"Signal Strength: {signal_count}/3 ({signal_count/3*100:.0f}%)",
-            f"Expected Move: {expected_move:.1f}%"
+            f"Expected Move: {expected_move_display}"
         ]
         
         summary_box = self.table.create_summary_box("Calendar Strategy Summary", summary_content)
         self.output.output(summary_box)
+        
+        # Display data quality warnings if available
+        data_quality = calendar_data.get("data_quality")
+        if data_quality and data_quality.get('issues_found', 0) > 0:
+            quality_content = [
+                f"⚠️  Data Quality Issues: {data_quality['issues_found']} found"
+            ]
+            
+            # Add fallback usage notification
+            if data_quality.get('fallback_used', False):
+                quality_content.append("🔧 Black-Scholes IV estimation used as fallback")
+                
+            # Add specific recommendations
+            recommendations = data_quality.get('recommendations', [])
+            for rec in recommendations[:2]:  # Show top 2 recommendations
+                quality_content.append(f"💡 {rec}")
+                
+            quality_box = self.table.create_summary_box("Data Quality Alerts", quality_content)
+            self.output.output(quality_box)
     
     def format_trade_structures_comparison(self, trade_data: Dict[str, Any]):
         """Format comprehensive side-by-side calendar vs straddle comparison"""
@@ -456,6 +478,7 @@ class EnhancedCLIFormatter:
         calendar_trade = trade_data.get("calendar_trade", {})
         straddle_data = trade_data.get("straddle_construction", {})
         straddle_trade = straddle_data.get("straddle_trade", {}) if straddle_data else {}
+        straddle_greeks_data = straddle_data.get("straddle_greeks", {}) if straddle_data else {}
         pnl_data = trade_data.get("pnl_analysis", {})
         greeks_data = trade_data.get("greeks_analysis", {})
         quality_data = trade_data.get("quality_assessment", {})
@@ -532,10 +555,10 @@ class EnhancedCLIFormatter:
         
         if straddle_trade:
             straddle_greeks.update({
-                "Net Delta": f"{straddle_trade.get('net_delta', 0):.4f}",
-                "Gamma Exposure": f"{straddle_trade.get('net_gamma', 0):.4f}",
-                "Daily Theta": f"${straddle_trade.get('net_theta', 0):.2f}",
-                "Vega Risk": f"${straddle_trade.get('net_vega', 0):.2f}",
+                "Net Delta": f"{straddle_greeks_data.get('net_delta', 0):.4f}",
+                "Gamma Exposure": f"{straddle_greeks_data.get('net_gamma', 0):.4f}",
+                "Daily Theta": f"${straddle_greeks_data.get('net_theta', 0):.2f}",
+                "Vega Risk": f"${straddle_greeks_data.get('net_vega', 0):.2f}",
                 "Quality Score": f"{straddle_trade.get('liquidity_score', 0)*10:.1f}/100",
                 "Win Rate": f"{straddle_trade.get('probability_of_profit', 0)*100:.1f}%"
             })
@@ -560,7 +583,7 @@ class EnhancedCLIFormatter:
                 stats = pnl_data['summary_stats']
                 scenario_rows.extend([
                     ["Expected Return", f"${stats.get('expected_value', 0):.2f}"],
-                    ["Profit Scenarios", f"{stats.get('profitable_scenarios', 0)}"],
+                    ["Profit Scenarios", f"{stats.get('profit_scenarios', 0)}"],
                     ["Break-even Scenarios", f"{stats.get('breakeven_scenarios', 0)}"]
                 ])
             
@@ -643,11 +666,21 @@ class EnhancedCLIFormatter:
         
         # 2. Account & Risk Summary
         account_headers = ["Account Metric", "Current Value", "Post-Trade"]
+        # Calculate current portfolio utilization and post-trade values
+        capital_deployed = recommended.get('capital_required', 0)
+        total_capital = account_summary.get('total_capital', 1)
+        available_capital = account_summary.get('available_capital', total_capital)
+        
+        # Calculate portfolio utilization percentages
+        current_utilization = account_summary.get('utilization_percentage', 0)
+        post_trade_utilization = (capital_deployed / total_capital) * 100
+        
         account_rows = [
-            ["Account Size", f"${account_summary.get('total_capital', 0):,.0f}", "Unchanged"],
-            ["Available Capital", f"${account_summary.get('available_capital', 0):,.0f}", f"${account_summary.get('available_capital', 0) - recommended.get('capital_required', 0):,.0f}"],
-            ["Portfolio Utilization", f"{account_summary.get('utilization_percentage', 0):.1f}%", f"{(recommended.get('capital_required', 0) / account_summary.get('total_capital', 1)) * 100:.1f}%"],
-            ["Risk per Trade", f"{kelly_analysis.get('account_risk_pct', 0):.1f}%", "Target risk level"]
+            ["Account Size", f"${total_capital:,.0f}", "Unchanged"],
+            ["Available Capital", f"${available_capital:,.0f}", f"${available_capital - capital_deployed:,.0f}"],
+            ["Capital Deployed", "N/A", f"${capital_deployed:,.0f}"],
+            ["Portfolio Utilization", f"{current_utilization:.1f}%", f"{post_trade_utilization:.1f}%"],
+            ["Risk per Trade", f"0.0%", f"{kelly_analysis.get('account_risk_pct', 0):.1f}%"]
         ]
         
         # Risk compliance status  
@@ -1099,14 +1132,33 @@ class EnhancedCLIFormatterWithMarkdown(EnhancedCLIFormatter):
             # Strategy summary
             recommendation = calendar_data.get("recommendation", "Unknown")
             signal_count = calendar_data.get("signal_count", 0)
-            expected_move = calendar_data.get("expected_move", 0)
+            expected_move = calendar_data.get("expected_move_pct")
+            
+            # Safe formatting for expected move (handle None values)
+            expected_move_display = f"{expected_move:.1f}%" if expected_move is not None else "N/A"
             
             summary_items = [
                 f"**Strategy Recommendation:** {recommendation}",
                 f"**Signal Strength:** {signal_count}/3 ({signal_count/3*100:.0f}%)",
-                f"**Expected Move:** {expected_move:.1f}%"
+                f"**Expected Move:** {expected_move_display}"
             ]
             self.markdown.add_summary_box("Calendar Strategy Summary", summary_items)
+            
+            # Add data quality warnings to markdown
+            data_quality = calendar_data.get("data_quality")
+            if data_quality and data_quality.get('issues_found', 0) > 0:
+                quality_alerts = [
+                    f"Data Quality Issues: {data_quality['issues_found']} found"
+                ]
+                
+                if data_quality.get('fallback_used', False):
+                    quality_alerts.append("Black-Scholes IV estimation used as fallback")
+                    
+                recommendations = data_quality.get('recommendations', [])
+                for rec in recommendations[:2]:
+                    quality_alerts.append(rec)
+                    
+                self.markdown.add_alert_section(quality_alerts, "warning")
     
     def format_earnings_analysis(self, earnings_data: Dict[str, Any]):
         """Format earnings analysis for both console and markdown"""
@@ -1271,7 +1323,7 @@ class EnhancedCLIFormatterWithMarkdown(EnhancedCLIFormatter):
             if pnl_data:
                 pnl_stats = pnl_data.get("summary_stats", {})
                 pnl_rows = [
-                    ["Scenarios Analyzed", str(pnl_stats.get('scenarios_analyzed', 0))],
+                    ["Scenarios Analyzed", str(pnl_stats.get('total_scenarios', 0))],
                     ["IV Crush Model", pnl_data.get('iv_crush_severity', 'Unknown')],
                     ["Expected Return", f"${pnl_stats.get('expected_return', 0):.2f}"],
                     ["Profit Scenarios", str(pnl_stats.get('profit_scenarios', 0))],
@@ -1311,14 +1363,15 @@ class EnhancedCLIFormatterWithMarkdown(EnhancedCLIFormatter):
             
             # Position recommendation
             recommended = position_data.get("recommended_position", {})
+            kelly_analysis = position_data.get("kelly_analysis", {})
             if recommended:
                 position_rows = [
                     ["Symbol", recommended.get('symbol', 'Unknown')],
                     ["Recommended Contracts", str(recommended.get('contracts', 0))],
                     ["Capital Required", f"${recommended.get('capital_required', 0):.0f}"],
-                    ["Kelly Fraction", f"{recommended.get('kelly_fraction', 0):.4f}"],
-                    ["Signal Multiplier", f"{recommended.get('signal_multiplier', 0):.2f}x"],
-                    ["Risk-Adjusted Kelly", f"{recommended.get('risk_adjusted_kelly', 0):.4f}"]
+                    ["Kelly Fraction", f"{kelly_analysis.get('kelly_fraction', 0):.4f}"],
+                    ["Signal Multiplier", f"{kelly_analysis.get('signal_multiplier', 0):.2f}x"],
+                    ["Risk-Adjusted Kelly", f"{kelly_analysis.get('risk_adjusted_kelly', 0):.4f}"]
                 ]
                 self.markdown.add_table(
                     ["Position Component", "Value", "Notes"],
@@ -1327,14 +1380,22 @@ class EnhancedCLIFormatterWithMarkdown(EnhancedCLIFormatter):
                 )
             
             # Account and risk summary
-            risk_summary = position_data.get("risk_summary", {})
-            if risk_summary:
+            account_summary = position_data.get("account_summary", {})
+            risk_assessment = position_data.get("risk_assessment", {})
+            if account_summary:
+                # Calculate values consistently with CLI formatter
+                capital_deployed = recommended.get('capital_required', 0)
+                total_capital = account_summary.get('total_capital', 1)
+                current_utilization = account_summary.get('utilization_percentage', 0)
+                post_trade_utilization = (capital_deployed / total_capital) * 100
+                
                 account_rows = [
-                    ["Account Size", f"${risk_summary.get('account_size', 0):,.0f}"],
-                    ["Available Capital", f"${risk_summary.get('available_capital', 0):,.0f}"],
-                    ["Portfolio Utilization", f"{risk_summary.get('portfolio_utilization_pct', 0):.1f}%"],
-                    ["Risk per Trade", f"{risk_summary.get('risk_per_trade_pct', 0):.1f}%"],
-                    ["Risk Compliance", "✅ COMPLIANT" if risk_summary.get('is_compliant', False) else "❌ NON-COMPLIANT"]
+                    ["Account Size", f"${total_capital:,.0f}"],
+                    ["Available Capital", f"${account_summary.get('available_capital', 0):,.0f}"],
+                    ["Capital Deployed", f"${capital_deployed:,.0f}"],
+                    ["Portfolio Utilization", f"{post_trade_utilization:.1f}%"],
+                    ["Risk per Trade", f"{kelly_analysis.get('account_risk_pct', 0):.1f}%"],
+                    ["Risk Compliance", "✅ COMPLIANT" if risk_assessment.get('is_compliant', False) else "❌ NON-COMPLIANT"]
                 ]
                 self.markdown.add_table(
                     ["Account Metric", "Current Value", "Post-Trade"],

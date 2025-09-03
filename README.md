@@ -88,6 +88,34 @@ The **Advanced Options Trading Calculator** is a comprehensive, full-stack optio
 - **Rich Markdown Reports**: Tables, alerts, blockquotes with proper typography
 - **Timestamped Analysis Logs**: Complete analysis history with searchable logs
 
+## 🔧 **Recent Architectural Improvements (September 2025)**
+
+### 🎯 **Critical System Fixes Completed**
+The platform has undergone systematic architectural improvements addressing 7 critical issues for enhanced reliability and user experience:
+
+- **✅ Position Sizing Mathematical Precision**: Fixed critical 100x calculation error that could cause catastrophic trading losses
+- **✅ Realistic Demo Data Generation**: Enhanced demo provider with Black-Scholes-based pricing for meaningful Greeks analysis  
+- **✅ Enhanced Provider Redundancy**: Added Yahoo Finance to earnings provider chain for improved data reliability
+- **✅ Eliminated Data Contradictions**: Standardized P&L display formatting to prevent contradictory analysis output
+- **✅ Complete Statistical Coverage**: Fixed expected return calculations to work in all dependency scenarios
+- **✅ Unified Decision Logic**: Integrated earnings timing validation with trading decisions to eliminate conflicts
+- **✅ Simplified User Experience**: **New single-command entry point** - `python main.py --symbol AAPL` enables all modules by default
+
+### 🎯 **Simplified Entry Point (NEW)**
+```bash
+# Complete analysis with all modules enabled (NEW)
+python main.py --symbol AAPL                    # All 4 modules automatically enabled
+python main.py --demo --symbol AAPL             # Demo mode with complete analysis
+
+# Legacy explicit module specification (still supported)
+python main.py --symbol AAPL --earnings         # Only earnings analysis
+python main.py --symbol AAPL --trade-construction --position-sizing  # Specific modules
+```
+
+**What's New**: No more complex flag combinations required! The system now intelligently enables comprehensive analysis by default while preserving full backward compatibility for advanced users.
+
+**✅ System Status**: All architectural fixes validated and operational. Current version: **v2.0.0** - Production Ready.
+
 ## 📦 Installation
 
 ### Prerequisites
@@ -223,17 +251,16 @@ npm run dev
 
 ### Command Line Interface (Analysis Engine)
 ```bash
-# Basic analysis
-python3 main.py --symbol AAPL
+# 🎯 NEW SIMPLIFIED ENTRY POINT - Complete analysis with all modules
+python3 main.py --symbol AAPL                    # All 4 modules automatically enabled
+python3 main.py --demo --symbol AAPL             # Demo mode with complete analysis
 
-# Complete analysis with all modules
-python3 main.py --symbol AAPL --earnings --trade-construction --position-sizing --trading-decision
+# Legacy explicit module specification (still supported)
+python3 main.py --symbol AAPL --earnings         # Only earnings analysis  
+python3 main.py --symbol AAPL --trade-construction --position-sizing  # Specific modules
 
-# Demo mode (no API keys required)
-python3 main.py --demo --earnings --symbol AAPL
-
-# Custom parameters
-python3 main.py --symbol AAPL --earnings --expirations 3 --account-size 50000 --risk-per-trade 0.02
+# Advanced customization
+python3 main.py --symbol AAPL --expirations 3 --account-size 50000 --risk-per-trade 0.02
 ```
 
 ### Programmatic API
@@ -359,10 +386,10 @@ MIN_CONTRACTS_THRESHOLD=1
 # Run comprehensive test suite
 python3 test_modular.py
 
-# Test with demo data (no API required)
-python3 main.py --demo --earnings --symbol AAPL
+# Test with demo data (no API required) - NEW SIMPLIFIED FORMAT
+python3 main.py --demo --symbol AAPL             # Complete analysis with all modules
 
-# Test specific modules
+# Test specific modules (legacy format still supported)
 python3 main.py --demo --earnings --trade-construction --symbol LULU
 ```
 
@@ -475,7 +502,7 @@ cd frontend && npm run dev
 
 **CLI Analysis:**
 ```bash
-python3 main.py --demo --earnings --symbol AAPL
+python3 main.py --demo --symbol AAPL             # NEW: All modules enabled by default
 ```
 
 **📖 Need help?** Check out the [Strategy Guide](docs/earnings_iv_crush_strategy_complete_playbook.md) and [Configuration Guide](CLAUDE.md)

@@ -403,11 +403,47 @@ class ConfigurableDecisionEngine:
                 recommended_position.get("contracts", 0)
             )
         
-        # Earnings timing (if available)
+        # Earnings timing validation (comprehensive integration)
         earnings_analysis = analysis_result.get("earnings_analysis", {})
         if earnings_analysis and "error" not in earnings_analysis:
-            # Simple timing check - in production this would be more sophisticated
-            metrics["earnings_timing_valid"] = True
+            warnings = earnings_analysis.get("warnings", [])
+            
+            # Check for critical timing issues that should disqualify trades
+            critical_timing_issues = [
+                "Entry window falls on weekend",
+                "Exit window falls on weekend", 
+                "Earnings event is in the past"
+            ]
+            
+            has_critical_timing_issues = any(
+                any(critical in warning for critical in critical_timing_issues) 
+                for warning in warnings
+            )
+            
+            # Check for moderate timing concerns
+            moderate_timing_issues = [
+                "not confirmed",
+                "days away (options may not be available)"
+            ]
+            
+            has_moderate_timing_issues = any(
+                any(moderate in warning for moderate in moderate_timing_issues)
+                for warning in warnings
+            ) 
+            
+            # Set timing validation flag
+            if has_critical_timing_issues:
+                metrics["earnings_timing_valid"] = False
+                metrics["timing_disqualifies_trade"] = True
+            elif has_moderate_timing_issues:
+                metrics["earnings_timing_valid"] = True  # Allow but flag concerns
+                metrics["timing_reduces_confidence"] = True
+            else:
+                metrics["earnings_timing_valid"] = True
+                
+            # Store timing warnings for decision reasoning
+            metrics["timing_warnings"] = warnings
+            metrics["has_timing_issues"] = len(warnings) > 0
         
         return metrics
     
@@ -497,6 +533,10 @@ class ConfigurableDecisionEngine:
         if not metrics.get("position_size_valid", False):
             return True
         
+        # Critical timing issues (weekend conflicts, past events)
+        if metrics.get("timing_disqualifies_trade", False):
+            return True
+        
         return False
     
     def _calculate_confidence(self, metrics: Dict[str, Any], decision: str) -> float:
@@ -525,6 +565,10 @@ class ConfigurableDecisionEngine:
         # Position sizing component (0-0.1)
         if metrics.get("position_size_valid", False):
             score += 0.1
+        
+        # Timing adjustment (penalty for moderate timing issues)
+        if metrics.get("timing_reduces_confidence", False):
+            score *= 0.85  # 15% confidence reduction for timing concerns
         
         # Adjust for decision type
         if decision == "EXECUTE":
@@ -583,6 +627,24 @@ class ConfigurableDecisionEngine:
             reasoning.append(f"Moderate quality trade: {quality_score:.0f}/100 quality score")
         else:
             reasoning.append(f"Low quality trade: {quality_score:.0f}/100 quality score")
+        
+        # Timing-related reasoning
+        if metrics.get("timing_disqualifies_trade", False):
+            timing_warnings = metrics.get("timing_warnings", [])
+            critical_warnings = [w for w in timing_warnings if any(
+                critical in w for critical in ["weekend", "past"]
+            )]
+            if critical_warnings:
+                reasoning.append(f"Critical timing issue: {'; '.join(critical_warnings)}")
+        elif metrics.get("timing_reduces_confidence", False):
+            timing_warnings = metrics.get("timing_warnings", [])
+            moderate_warnings = [w for w in timing_warnings if any(
+                moderate in w for moderate in ["not confirmed", "days away"]
+            )]
+            if moderate_warnings:
+                reasoning.append(f"Timing concern: {'; '.join(moderate_warnings)} (confidence reduced)")
+        elif metrics.get("has_timing_issues", False):
+            reasoning.append(f"Minor timing alerts: {len(metrics.get('timing_warnings', []))} warning(s)")
         
         # Decision-specific reasoning
         if decision == "EXECUTE":

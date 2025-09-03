@@ -55,7 +55,12 @@ class FinnhubProvider(PriceProvider, OptionsProvider, EarningsProvider):
         try:
             response = requests.get(url, params=params, timeout=10)
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            
+            # Debug logging: Log raw JSON response
+            logger.debug(f"Finnhub API Response for {endpoint}: {data}")
+            
+            return data
             
         except requests.RequestException as e:
             raise RuntimeError(f"Finnhub request failed: {e}")

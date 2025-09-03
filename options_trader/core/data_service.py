@@ -404,5 +404,9 @@ class DataService:
         if self.tradier and hasattr(self.tradier, '_is_enabled') and self.tradier._is_enabled():
             providers.append(self.tradier)
         
+        # Yahoo Finance (free fallback for earnings)
+        if self.yahoo:
+            providers.append(self.yahoo)
+        
         logger.debug(f"Available earnings providers: {len(providers)}")
         return providers

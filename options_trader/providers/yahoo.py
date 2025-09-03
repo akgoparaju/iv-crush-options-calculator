@@ -57,6 +57,7 @@ class YahooProvider(PriceProvider, OptionsProvider, EarningsProvider):
         # Try fast_info first (fastest method)
         try:
             info = ticker.fast_info
+            logger.debug(f"Yahoo fast_info raw data for {symbol}: {info}")
             price = getattr(info, "last_price", None)
             if price is None and isinstance(info, dict):
                 price = info.get("last_price")
@@ -71,6 +72,7 @@ class YahooProvider(PriceProvider, OptionsProvider, EarningsProvider):
         # Fallback to intraday history
         try:
             df = ticker.history(period="1d", interval="1m")
+            logger.debug(f"Yahoo history raw data for {symbol}: {df.tail() if df is not None and not df.empty else 'Empty/None'}")
             if df is not None and not df.empty:
                 price = float(df["Close"].iloc[-1])
                 logger.debug(f"Yahoo history price for {symbol}: ${price:.2f}")
@@ -135,6 +137,9 @@ class YahooProvider(PriceProvider, OptionsProvider, EarningsProvider):
         
         try:
             chain = ticker.option_chain(expiration)
+            logger.debug(f"Yahoo chain raw data for {symbol} {expiration}: calls={len(chain.calls)} rows, puts={len(chain.puts)} rows")
+            logger.debug(f"Yahoo chain calls data for {symbol}: {chain.calls.to_dict() if hasattr(chain.calls, 'to_dict') else str(chain.calls)}")
+            logger.debug(f"Yahoo chain puts data for {symbol}: {chain.puts.to_dict() if hasattr(chain.puts, 'to_dict') else str(chain.puts)}")
             logger.debug(f"Yahoo chain for {symbol} {expiration}: {len(chain.calls)} calls, {len(chain.puts)} puts")
             return chain
             
@@ -154,15 +159,49 @@ class YahooProvider(PriceProvider, OptionsProvider, EarningsProvider):
         """
         ticker = self._get_ticker(symbol)
         try:
+            # Try calendar property first (more reliable for upcoming earnings)
+            try:
+                calendar = ticker.calendar
+                logger.debug(f"Raw calendar data for {symbol} from yfinance: {calendar}")
+                
+                if calendar and 'Earnings Date' in calendar:
+                    earnings_dates_list = calendar['Earnings Date']
+                    if earnings_dates_list and len(earnings_dates_list) > 0:
+                        # Take the first (closest) earnings date
+                        earnings_date = earnings_dates_list[0]
+                        
+                        # Check if it's today or in the future (earnings typically after market close)
+                        now = datetime.now().date()
+                        if earnings_date >= now:
+                            event = EarningsEvent(
+                                symbol=symbol.upper(),
+                                date=datetime.combine(earnings_date, datetime.min.time()),
+                                timing="AMC",  # Default assumption
+                                confirmed=True,  # Calendar data is more reliable
+                                source="yahoo.calendar"
+                            )
+                            logger.info(f"Found next earnings for {symbol}: {earnings_date} from yfinance calendar")
+                            return event
+                        else:
+                            logger.debug(f"Calendar earnings date {earnings_date} is not in future for {symbol}")
+                    else:
+                        logger.debug(f"No earnings dates in calendar for {symbol}")
+                else:
+                    logger.debug(f"No calendar data or earnings date for {symbol}")
+            except Exception as calendar_error:
+                logger.debug(f"Calendar lookup failed for {symbol}: {calendar_error}")
+            
+            # Fallback to earnings_dates property (historical earnings)
             earnings_dates = ticker.earnings_dates
-            logger.debug(f"Raw earnings dates for {symbol} from yfinance: {earnings_dates}")
+            logger.debug(f"Raw earnings_dates data for {symbol} from yfinance: {earnings_dates}")
+            logger.debug(f"Raw earnings_dates full dataframe for {symbol}: {earnings_dates.to_dict() if earnings_dates is not None and hasattr(earnings_dates, 'to_dict') else 'None/Empty'}")
             if earnings_dates is None or earnings_dates.empty:
                 logger.debug(f"No earnings dates found for {symbol} from yfinance")
                 return None
 
-            # Find the next earnings date
+            # Find the next earnings date (include today since earnings typically after close)
             now = datetime.now().date()
-            future_earnings = earnings_dates[earnings_dates.index.date > now]
+            future_earnings = earnings_dates[earnings_dates.index.date >= now]
             if future_earnings.empty:
                 logger.debug(f"No future earnings dates found for {symbol}")
                 return None
@@ -175,7 +214,7 @@ class YahooProvider(PriceProvider, OptionsProvider, EarningsProvider):
                 symbol=symbol.upper(),
                 date=datetime.combine(earnings_date, datetime.min.time()),
                 timing="AMC",  # Default assumption
-                confirmed=False,  # yfinance doesn't provide confirmation
+                confirmed=False,  # earnings_dates is less reliable
                 source="yahoo.earnings_dates"
             )
             logger.info(f"Found next earnings for {symbol}: {earnings_date} (estimated) from yfinance")

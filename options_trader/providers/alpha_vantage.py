@@ -74,6 +74,9 @@ class AlphaVantageProvider(PriceProvider, EarningsProvider):
             response.raise_for_status()
             data = response.json()
             
+            # Debug logging: Log raw JSON response
+            logger.debug(f"Alpha Vantage API Response for {params.get('function', 'unknown')}: {data}")
+            
             # Check for API error messages
             if 'Error Message' in data:
                 raise RuntimeError(f"Alpha Vantage API error: {data['Error Message']}")

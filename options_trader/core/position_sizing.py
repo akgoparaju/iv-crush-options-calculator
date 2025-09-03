@@ -28,6 +28,9 @@ except ImportError:
 
 logger = logging.getLogger("options_trader.position_sizing")
 
+# Options contract multiplier - Standard options contracts represent 100 shares
+SHARES_PER_CONTRACT = 100
+
 # Signal-based Kelly fraction scaling
 SIGNAL_SCALING = {
     3: {"name": "Strong Signal", "kelly_multiplier": 1.0, "max_position_pct": 0.05},
@@ -186,9 +189,10 @@ class FractionalKellyCalculator:
                 risk_adjusted_kelly, signal_count, account_size
             )
             
-            # Calculate position size
+            # Calculate position size (accounting for 100 shares per contract)
             position_capital = account_size * constrained_kelly
-            raw_contracts = max(1, int(position_capital / max_loss)) if max_loss > 0 else 0
+            cost_per_contract = max_loss * SHARES_PER_CONTRACT
+            raw_contracts = max(1, int(position_capital / cost_per_contract)) if cost_per_contract > 0 else 0
             
             # Apply practical constraints to prevent unrealistic position sizes
             # For low-premium strategies, limit contracts to reasonable amounts
@@ -207,7 +211,7 @@ class FractionalKellyCalculator:
             position_size = PositionSize(
                 symbol=symbol,
                 contracts=contracts,
-                capital_required=contracts * max_loss,
+                capital_required=contracts * max_loss * SHARES_PER_CONTRACT,
                 account_risk_pct=constrained_kelly * 100,
                 kelly_fraction=kelly_params.kelly_fraction,
                 signal_multiplier=kelly_params.signal_multiplier,
@@ -297,7 +301,7 @@ class FractionalKellyCalculator:
         errors = []
         warnings = []
         
-        total_risk = contracts * max_loss_per_contract
+        total_risk = contracts * max_loss_per_contract * SHARES_PER_CONTRACT
         risk_pct = (total_risk / account_size) * 100 if account_size > 0 else 0
         
         # Check position size limits

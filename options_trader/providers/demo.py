@@ -83,7 +83,7 @@ class DemoProvider(PriceProvider, OptionsProvider, EarningsProvider):
     
     def get_chain(self, symbol: str, expiration: str):
         """
-        Generate synthetic option chain.
+        Generate synthetic option chain with realistic pricing relationships.
         
         Args:
             symbol: Stock symbol
@@ -96,23 +96,69 @@ class DemoProvider(PriceProvider, OptionsProvider, EarningsProvider):
         random.seed(hash(symbol + expiration))
         
         price, _ = self.get_price(symbol)
-        strikes = [round(price + offset, 2) for offset in (-5, 0, 5)]
+        strikes = [round(price + offset, 2) for offset in (-10, -5, -2.5, 0, 2.5, 5, 10)]
+        
+        # Calculate days to expiration for time decay
+        today = datetime.now().date()
+        exp_date = datetime.strptime(expiration, "%Y-%m-%d").date()
+        days_to_expiration = max(1, (exp_date - today).days)
+        time_factor = days_to_expiration / 365.0  # Years to expiration
+        
+        # Base implied volatility with term structure
+        base_iv = 0.25 + (random.random() * 0.15)  # 25-40% base IV
+        # Add volatility smile (higher IV for OTM options)
+        # Add term structure (longer expirations have different IV)
+        term_adjustment = 0.02 * (time_factor - 0.1)  # Slight term structure
+        
+        def calculate_intrinsic_value(strike: float, is_call: bool) -> float:
+            """Calculate intrinsic value for option."""
+            if is_call:
+                return max(0, price - strike)
+            else:
+                return max(0, strike - price)
+        
+        def calculate_time_value(strike: float, days: int, iv: float) -> float:
+            """Calculate approximate time value using simplified Black-Scholes factors."""
+            # Simplified time value calculation for demo purposes
+            # Real implementation would use full Black-Scholes
+            moneyness = abs(strike - price) / price
+            time_decay = max(0.01, days / 365.0 * 0.5)  # Time component
+            volatility_factor = iv * (time_decay ** 0.5)  # Vol component
+            smile_factor = 1 + (moneyness * 0.5)  # Volatility smile
+            
+            return max(0.05, volatility_factor * smile_factor * price * 0.1)
         
         def create_option_side(is_call: bool) -> DataFrame:
-            """Create synthetic options for calls or puts."""
+            """Create synthetic options with realistic pricing."""
             rows = []
             for strike in strikes:
-                bid = max(0.1, round(random.random() * 2.0, 2))
-                ask = bid + round(random.random(), 2)
-                last_price = (bid + ask) / 2
-                iv = round(0.2 + random.random() * 0.2, 4)  # 20-40% IV range
+                # Calculate moneyness for volatility smile
+                moneyness = abs(strike - price) / price
+                smile_adjustment = moneyness * 0.05  # 5% IV increase per 100% moneyness
+                
+                # Apply term structure and volatility smile
+                iv = base_iv + term_adjustment + smile_adjustment
+                iv = max(0.10, min(0.80, iv))  # Cap IV between 10-80%
+                
+                # Calculate theoretical option value
+                intrinsic = calculate_intrinsic_value(strike, is_call)
+                time_value = calculate_time_value(strike, days_to_expiration, iv)
+                theoretical_price = intrinsic + time_value
+                
+                # Add bid-ask spread (tighter for ATM options)
+                spread_factor = 1 + moneyness * 2  # Wider spreads for OTM
+                bid_ask_spread = max(0.05, theoretical_price * 0.03 * spread_factor)
+                
+                bid = max(0.01, theoretical_price - bid_ask_spread/2)
+                ask = theoretical_price + bid_ask_spread/2
+                last_price = round((bid + ask) / 2, 2)
                 
                 rows.append({
                     "strike": strike,
-                    "bid": bid,
-                    "ask": ask,
+                    "bid": round(bid, 2),
+                    "ask": round(ask, 2),
                     "lastPrice": last_price,
-                    "impliedVolatility": iv
+                    "impliedVolatility": round(iv, 4)
                 })
             
             return DataFrame(rows)
@@ -125,7 +171,8 @@ class DemoProvider(PriceProvider, OptionsProvider, EarningsProvider):
         chain.calls = create_option_side(True)
         chain.puts = create_option_side(False)
         
-        logger.debug(f"Demo chain for {symbol} {expiration}: {len(strikes)} strikes each side")
+        logger.debug(f"Demo chain for {symbol} {expiration}: {len(strikes)} strikes, "
+                    f"{days_to_expiration} days to expiration, base IV {base_iv:.2%}")
         return chain
     
     def get_next_earnings(self, symbol: str) -> Optional[EarningsEvent]:

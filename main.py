@@ -19,11 +19,11 @@ USAGE:
     python main.py --symbol AAPL --earnings            # With earnings analysis
     python main.py --demo --symbol AAPL --earnings     # Demo mode
 
-DISCLAIMER: 
-This software is provided solely for educational and research purposes. 
-It is not intended to provide investment advice, and no investment recommendations are made herein. 
-The developers are not financial advisors and accept no responsibility for any financial decisions 
-or losses resulting from the use of this software. Always consult a professional financial advisor 
+DISCLAIMER:
+This software is provided solely for educational and research purposes.
+It is not intended to provide investment advice, and no investment recommendations are made herein.
+The developers are not financial advisors and accept no responsibility for any financial decisions
+or losses resulting from the use of this software. Always consult a professional financial advisor
 before making any investment decisions.
 """
 
@@ -99,14 +99,14 @@ def print_version():
     print(f"Log file: {log_path}")
 
 
-def analyze_symbol_cli(symbol: str, expirations: int = 2, demo: bool = False, 
+def analyze_symbol_cli(symbol: str, expirations: int = 5, demo: bool = False,
                       earnings: bool = False, trade_construction: bool = False,
                       position_sizing: bool = False, trading_decision: bool = False,
-                      structure: str = None, account_size: float = None, 
+                      structure: str = None, account_size: float = None,
                       risk_per_trade: float = None) -> None:
     """
     Analyze a symbol in command-line mode using enhanced professional formatting.
-    
+
     Args:
         symbol: Stock symbol to analyze
         expirations: Number of expirations to check
@@ -133,18 +133,18 @@ def analyze_symbol_cli(symbol: str, expirations: int = 2, demo: bool = False,
             account_size=account_size,
             risk_per_trade=risk_per_trade
         )
-        
+
         if "error" in result:
             print(f"❌ ANALYSIS ERROR: {result['error']}")
             logger.error(f"Analysis error for {symbol}: {result['error']}")
             return
-        
+
         # Use enhanced formatter if available, otherwise fallback to simple output
         if HAS_ENHANCED_CLI:
             try:
                 # Create enhanced CLI formatter with logging enabled
                 formatter = create_enhanced_cli_formatter(symbol=symbol, log_cli_output=True)
-                
+
                 # Format analysis header
                 modules_enabled = {
                     "earnings": earnings,
@@ -152,7 +152,7 @@ def analyze_symbol_cli(symbol: str, expirations: int = 2, demo: bool = False,
                     "position_sizing": position_sizing,
                     "trading_decision": trading_decision
                 }
-                
+
                 formatter.format_analysis_header(
                     symbol=result['symbol'],
                     price=result['price'],
@@ -161,56 +161,56 @@ def analyze_symbol_cli(symbol: str, expirations: int = 2, demo: bool = False,
                     expirations=expirations,
                     demo=demo
                 )
-                
+
                 # Format calendar analysis (always available)
                 calendar_data = result.get("calendar_spread_analysis", {})
                 formatter.format_calendar_analysis(calendar_data)
-                
+
                 # Format earnings analysis if requested
                 if earnings and "earnings_analysis" in result:
                     earnings_data = result["earnings_analysis"]
                     formatter.format_earnings_analysis(earnings_data)
-                
+
                 # Format trade construction analysis if requested
                 if trade_construction and "trade_construction" in result:
                     trade_data = result["trade_construction"]
                     formatter.format_trade_structures_comparison(trade_data)
-                
+
                 # Format position sizing analysis if requested
                 if position_sizing and "position_sizing" in result:
                     position_data = result["position_sizing"]
                     formatter.format_position_sizing(position_data)
-                
+
                 # Format trading decision analysis if requested
                 if trading_decision and "trading_decision" in result:
                     decision_data = result["trading_decision"]
                     formatter.format_trading_decision(decision_data)
-                
+
                 # Format footer
                 formatter.format_analysis_footer()
-                
+
             except Exception as e:
                 logger.error(f"Enhanced CLI formatting failed: {e}")
                 print(f"⚠️  Enhanced formatting failed: {e}")
                 print("Falling back to basic output format...")
                 _format_basic_output(result, symbol, earnings, trade_construction, position_sizing, trading_decision)
-                
+
         else:
             # Fallback to basic output if enhanced formatter not available
             logger.warning("Enhanced CLI formatter not available, using basic output")
             _format_basic_output(result, symbol, earnings, trade_construction, position_sizing, trading_decision)
-        
+
     except Exception as e:
         logger.error(f"Command-line analysis failed: {e}")
         print(f"❌ Analysis failed: {e}")
         print("Check the log file for more details.")
 
 
-def _format_basic_output(result: dict, symbol: str, earnings: bool, trade_construction: bool, 
+def _format_basic_output(result: dict, symbol: str, earnings: bool, trade_construction: bool,
                         position_sizing: bool, trading_decision: bool) -> None:
     """
     Fallback basic output formatting when enhanced formatter is not available.
-    
+
     Args:
         result: Analysis result dictionary
         symbol: Stock symbol
@@ -222,11 +222,11 @@ def _format_basic_output(result: dict, symbol: str, earnings: bool, trade_constr
     print(f"\n{'='*60}")
     print(f" BASIC OPTIONS ANALYSIS - {symbol.upper()}")
     print(f"{'='*60}")
-    
+
     # Basic symbol info
     print(f"Symbol: {result['symbol']}")
     print(f"Price: ${result['price']:.2f} (Source: {result['price_source']})")
-    
+
     # Calendar analysis
     calendar = result.get("calendar_spread_analysis", {})
     if "error" not in calendar:
@@ -235,19 +235,19 @@ def _format_basic_output(result: dict, symbol: str, earnings: bool, trade_constr
         signal_count = calendar.get("signal_count", 0)
         print(f"  Recommendation: {recommendation}")
         print(f"  Signal Strength: {signal_count}/3")
-        
+
         if calendar.get("term_structure_slope") is not None:
             slope = calendar["term_structure_slope"]
             print(f"  Term Structure: {slope:.6f} ({'✓' if calendar.get('ts_slope_signal') else '✗'})")
-        
+
         if calendar.get("iv_rv_ratio") is not None:
             ratio = calendar["iv_rv_ratio"]
             print(f"  IV/RV Ratio: {ratio:.2f} ({'✓' if calendar.get('iv_rv_signal') else '✗'})")
-        
+
         if calendar.get("avg_volume_30d") is not None:
             volume = calendar["avg_volume_30d"]
             print(f"  Volume (30d): {volume:,.0f} ({'✓' if calendar.get('volume_signal') else '✗'})")
-    
+
     # Earnings analysis
     if earnings and "earnings_analysis" in result:
         earnings_data = result["earnings_analysis"]
@@ -258,7 +258,7 @@ def _format_basic_output(result: dict, symbol: str, earnings: bool, trade_constr
             event = earnings_data.get("earnings_event", {})
             if event:
                 print(f"  Next Earnings: {event.get('date', 'Unknown')}")
-    
+
     # Trade construction
     if trade_construction and "trade_construction" in result:
         trade_data = result["trade_construction"]
@@ -271,7 +271,7 @@ def _format_basic_output(result: dict, symbol: str, earnings: bool, trade_constr
             print(f"  Strike: ${trade.get('strike', 0):.2f}")
             print(f"  Net Debit: ${trade.get('net_debit', 0):.2f}")
             print(f"  Quality Score: {quality.get('overall_score', 0):.1f}/100")
-    
+
     # Position sizing
     if position_sizing and "position_sizing" in result:
         position_data = result["position_sizing"]
@@ -282,7 +282,7 @@ def _format_basic_output(result: dict, symbol: str, earnings: bool, trade_constr
             recommended = position_data.get("recommended_position", {})
             print(f"  Position: {recommended.get('contracts', 0)} contracts")
             print(f"  Capital: ${recommended.get('capital_required', 0):,.0f}")
-    
+
     # Trading decision
     if trading_decision and "trading_decision" in result:
         decision_data = result["trading_decision"]
@@ -294,7 +294,7 @@ def _format_basic_output(result: dict, symbol: str, earnings: bool, trade_constr
             confidence = decision_data.get("original_confidence", decision_data.get("confidence", 0))
             print(f"  Decision: {decision}")
             print(f"  Confidence: {confidence:.1%}" if confidence else "  Confidence: N/A")
-    
+
     print(f"\n{'='*60}")
     print("⚠️  FOR EDUCATIONAL PURPOSES ONLY")
     print(f"{'='*60}\n")
@@ -306,36 +306,36 @@ def main():
         description="Advanced Options Calculator with Earnings Analysis",
         epilog="For GUI mode, run without arguments. Use --symbol for command-line analysis."
     )
-    
+
     parser.add_argument("--version", action="store_true", help="Show version information")
     parser.add_argument("--symbol", type=str, help="Symbol to analyze (command-line mode)")
-    parser.add_argument("--expirations", type=int, default=2, help="Number of expirations to check (default: 2)")
+    parser.add_argument("--expirations", type=int, default=5, help="Number of expirations to check (default: 2)")
     parser.add_argument("--demo", action="store_true", help="Use demo data instead of live APIs")
     parser.add_argument("--earnings", action="store_true", help="Include earnings analysis (Module 1)")
     parser.add_argument("--trade-construction", action="store_true", help="Include trade construction & P&L analysis (Module 2)")
     parser.add_argument("--position-sizing", action="store_true", help="Include position sizing & risk management (Module 3)")
     parser.add_argument("--trading-decision", action="store_true", help="Include trading decision automation (Module 4)")
-    parser.add_argument("--structure", type=str, choices=["calendar", "straddle", "auto"], 
+    parser.add_argument("--structure", type=str, choices=["calendar", "straddle", "auto"],
                        help="Trade structure: calendar (default), straddle, or auto-select")
     parser.add_argument("--account-size", type=float, help="Override account size for position sizing calculations")
     parser.add_argument("--risk-per-trade", type=float, help="Override risk per trade percentage (e.g., 0.02 for 2 percent)")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
-    
+
     args = parser.parse_args()
-    
+
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
         logger.debug("Debug logging enabled")
-    
+
     if args.version:
         print_version()
         return
-    
+
     logger.info("=" * 50)
     logger.info("Advanced Options Calculator starting")
     logger.info(f"Version: {__version__}")
     logger.info(f"Arguments: {sys.argv[1:]}")
-    
+
     try:
         if args.symbol:
             # Command-line mode
@@ -343,16 +343,39 @@ def main():
                 print("❌ Command-line analysis is not available due to missing dependencies.")
                 print("Install required packages with: pip install -r requirements.txt")
                 sys.exit(1)
-            
+
+            # Issue #1 Fix: Enable all modules by default if no module flags specified
+            module_flags_specified = any([
+                args.earnings,
+                getattr(args, 'trade_construction', False),
+                getattr(args, 'position_sizing', False),
+                getattr(args, 'trading_decision', False)
+            ])
+
+            if not module_flags_specified:
+                # No module flags specified - enable all modules for comprehensive analysis
+                earnings_enabled = True
+                trade_construction_enabled = True
+                position_sizing_enabled = True
+                trading_decision_enabled = True
+                logger.info(f"No module flags specified - enabling all modules for comprehensive analysis")
+            else:
+                # Module flags specified - use explicit settings
+                earnings_enabled = args.earnings
+                trade_construction_enabled = getattr(args, 'trade_construction', False)
+                position_sizing_enabled = getattr(args, 'position_sizing', False)
+                trading_decision_enabled = getattr(args, 'trading_decision', False)
+                logger.info(f"Using explicit module settings")
+
             logger.info(f"Running in CLI mode for symbol: {args.symbol}")
             analyze_symbol_cli(
                 symbol=args.symbol,
                 expirations=args.expirations,
                 demo=args.demo,
-                earnings=args.earnings,
-                trade_construction=getattr(args, 'trade_construction', False),
-                position_sizing=getattr(args, 'position_sizing', False),
-                trading_decision=getattr(args, 'trading_decision', False),
+                earnings=earnings_enabled,
+                trade_construction=trade_construction_enabled,
+                position_sizing=position_sizing_enabled,
+                trading_decision=trading_decision_enabled,
                 structure=getattr(args, 'structure', None),
                 account_size=getattr(args, 'account_size', None),
                 risk_per_trade=getattr(args, 'risk_per_trade', None)
@@ -361,22 +384,23 @@ def main():
             # No GUI mode - show help
             print("❌ GUI mode has been deprecated. Use command-line mode instead.")
             print("\nExamples:")
-            print("  python main.py --symbol AAPL --earnings")
-            print("  python main.py --symbol AAPL --earnings --trade-construction")
-            print("  python main.py --demo --symbol AAPL --earnings --trade-construction")
+            print("  python main.py --symbol AAPL                    # Comprehensive analysis (all modules)")
+            print("  python main.py --demo --symbol AAPL             # Demo mode with all modules")
+            print("  python main.py --symbol AAPL --earnings         # Only earnings analysis")
+            print("  python main.py --symbol AAPL --trade-construction --position-sizing  # Specific modules")
             print("\nFor full help: python main.py --help")
             sys.exit(1)
-    
+
     except KeyboardInterrupt:
         logger.info("Application interrupted by user")
         print("\\nApplication interrupted by user.")
-    
+
     except Exception as e:
         logger.error(f"Application crashed: {e}", exc_info=True)
         print(f"\\nApplication error: {e}")
         print(f"Check log file for details: {log_path}")
         sys.exit(1)
-    
+
     finally:
         logger.info("Advanced Options Calculator finished")
 

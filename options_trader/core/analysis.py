@@ -10,6 +10,8 @@ Core volatility analysis functions for earnings IV crush strategy:
 - Calendar spread metrics and recommendations
 - IV/RV ratio analysis with trading signals
 
+Enhanced with data quality validation and suspicious value detection.
+
 Preserves all original strategy logic and thresholds.
 """
 
@@ -38,6 +40,14 @@ try:
 except ImportError:
     HAS_SCIPY = False
     interp1d = None
+
+# Import data validator
+try:
+    from .data_validator import validator
+    HAS_DATA_VALIDATOR = True
+except ImportError:
+    HAS_DATA_VALIDATOR = False
+    validator = None
 
 logger = logging.getLogger("options_trader.analysis")
 
@@ -70,19 +80,31 @@ def build_term_structure(days: List[float], ivs: List[float]):
     ivs = ivs[sort_idx]
     
     try:
-        # Create interpolation spline
-        spline = interp1d(days, ivs, kind='linear', fill_value="extrapolate")
+        # Create interpolation spline with proper bounds
+        # Use boundary values instead of extrapolation to prevent unrealistic values
+        spline = interp1d(days, ivs, kind='linear', 
+                         fill_value=(float(ivs[0]), float(ivs[-1])),
+                         bounds_error=False)
         
         def term_spline(dte: float) -> float:
-            """Get implied volatility for given days to expiry."""
-            if dte < days[0]:  
+            """Get implied volatility for given days to expiry.
+            
+            Uses front month IV for dates before first expiry,
+            back month IV for dates after last expiry,
+            and interpolation between available points.
+            """
+            if dte <= days[0]:  
+                # For very near term (including earnings), use front month IV
                 return float(ivs[0])
-            elif dte > days[-1]:
+            elif dte >= days[-1]:
+                # Don't extrapolate beyond available data
                 return float(ivs[-1])
             else:  
+                # Interpolate between available points
                 return float(spline(dte))
         
         logger.debug(f"Built term structure with {len(days)} points from {days[0]:.1f} to {days[-1]:.1f} days")
+        logger.debug(f"Term structure will use boundary values outside range: front={ivs[0]:.4f}, back={ivs[-1]:.4f}")
         return term_spline
         
     except Exception as e:
@@ -167,7 +189,8 @@ def yang_zhang_volatility(price_history) -> float:
 def calculate_calendar_spread_metrics(atm_ivs: Dict[str, float], 
                                     underlying_price: float,
                                     straddle_price: Optional[float] = None, 
-                                    price_history: Optional[Any] = None) -> Dict[str, Any]:
+                                    price_history: Optional[Any] = None,
+                                    symbol: str = "UNKNOWN") -> Dict[str, Any]:
     """
     Calculate calendar spread and term structure metrics.
     Returns trading recommendation based on volatility analysis.
@@ -186,18 +209,31 @@ def calculate_calendar_spread_metrics(atm_ivs: Dict[str, float],
     Returns:
         Dictionary with analysis results and trading recommendation
     """
-    # For basic functionality, we can work without numpy/pandas
-    # but some advanced features will be limited
+    # Enhanced with data quality validation
     try:
         if len(atm_ivs) < 2:
             return {"error": "Need at least 2 expirations for term structure analysis"}
+            
+        # Validate IV data quality
+        if HAS_DATA_VALIDATOR and validator:
+            validated_ivs = validator.validate_iv_data(atm_ivs, symbol)
+            data_quality_report = validator.generate_data_quality_report(symbol)
+            
+            # Log data quality issues
+            if data_quality_report['issues_found'] > 0:
+                logger.warning(f"Data quality issues detected: {data_quality_report['issues_found']} issues found")
+                for issue in data_quality_report['issues'][:3]:  # Log first 3 issues
+                    logger.warning(f"  - {issue}")
+        else:
+            validated_ivs = atm_ivs
+            data_quality_report = None
             
         # Convert expiration dates to days to expiry
         today = datetime.now().date()
         dtes = []
         ivs = []
         
-        for exp_date_str, iv in atm_ivs.items():
+        for exp_date_str, iv in validated_ivs.items():
             try:
                 exp_date = datetime.strptime(exp_date_str, "%Y-%m-%d").date()
                 dte = (exp_date - today).days
@@ -218,33 +254,72 @@ def calculate_calendar_spread_metrics(atm_ivs: Dict[str, float],
             
         metrics = {}
         
-        # 1. Term structure slope (first expiry to 45 days)
+        # 1. Term structure slope (first expiry to 45 days or second expiry)
         first_dte = min(dtes)
-        if first_dte < 45:
-            slope_end = 45
+        sorted_dtes = sorted(dtes)
+        
+        # Choose appropriate endpoint for slope calculation
+        if first_dte < 45 and len(sorted_dtes) > 1:
+            # Prefer actual data point over extrapolation
+            # Use second expiry or closest to 45 days
+            if sorted_dtes[1] <= 45:
+                slope_end = sorted_dtes[1]
+                metrics['slope_calculation'] = f"Using actual expiry at {slope_end}D"
+            else:
+                # Cap at last available data point to avoid extrapolation
+                slope_end = min(45, max(dtes))
+                metrics['slope_calculation'] = f"Using {slope_end}D (capped at available data)"
         else:
             # Use second expiration if first is > 45 days
-            sorted_dtes = sorted(dtes)
             slope_end = sorted_dtes[1] if len(sorted_dtes) > 1 else first_dte + 15
+            metrics['slope_calculation'] = f"Using {slope_end}D"
             
         ts_slope = (term_spline(slope_end) - term_spline(first_dte)) / (slope_end - first_dte)
         metrics['term_structure_slope'] = ts_slope
         metrics['ts_slope_signal'] = ts_slope <= -0.00406  # Bearish term structure (strategy threshold)
         
+        # Add warning for extreme slopes that might indicate calculation issues
+        if ts_slope < -0.05:  # More than -5% slope
+            logger.warning(f"Extreme term structure slope detected: {ts_slope:.6f}")
+            metrics['slope_warning'] = "Unusually steep slope - verify data quality"
+        
         logger.debug(f"Term structure slope: {ts_slope:.6f} (signal: {metrics['ts_slope_signal']})")
         
-        # 2. IV30 vs RV30 ratio
-        iv30 = term_spline(30)
-        metrics['iv30'] = iv30
+        # 2. IV vs RV ratio (adjusted for earnings plays)
+        # For imminent earnings (<7 days), use front month IV directly
+        # Otherwise use interpolated IV30
+        first_dte = min(dtes)
+        
+        # Determine which IV to use based on earnings timing
+        if first_dte <= 7:
+            # Earnings imminent - use front month IV for accurate pricing
+            iv_for_ratio = term_spline(first_dte)
+            metrics['iv30'] = iv_for_ratio  # Store as iv30 for compatibility
+            metrics['iv_calculation_note'] = f"Using front month IV ({first_dte}D) due to imminent earnings"
+            logger.info(f"Earnings imminent ({first_dte}D): Using front month IV {iv_for_ratio:.4f} instead of interpolated IV30")
+        else:
+            # Normal case - use interpolated IV30 but don't extrapolate beyond data
+            max_available_dte = max(dtes)
+            target_dte = min(30, max_available_dte)
+            iv_for_ratio = term_spline(target_dte)
+            metrics['iv30'] = iv_for_ratio
+            if target_dte != 30:
+                metrics['iv_calculation_note'] = f"Using IV at {target_dte}D (max available) instead of 30D"
+                logger.debug(f"Limited to {target_dte}D for IV calculation (max available: {max_available_dte}D)")
+        
+        # Add validation warning for suspicious values
+        if iv_for_ratio < 0.10:  # Less than 10% IV
+            logger.warning(f"Suspicious IV calculation: {iv_for_ratio:.4f} ({iv_for_ratio*100:.2f}%)")
+            metrics['iv_warning'] = "IV appears unusually low - possible calculation issue"
         
         if price_history is not None and not price_history.empty:
             rv30 = yang_zhang_volatility(price_history.tail(30))  # Last 30 days
             metrics['rv30'] = rv30
             if rv30 > 0:
-                iv_rv_ratio = iv30 / rv30
+                iv_rv_ratio = iv_for_ratio / rv30
                 metrics['iv_rv_ratio'] = iv_rv_ratio
                 metrics['iv_rv_signal'] = iv_rv_ratio >= 1.25  # IV > RV indicates opportunity (strategy threshold)
-                logger.debug(f"IV30/RV30 ratio: {iv_rv_ratio:.2f} (signal: {metrics['iv_rv_signal']})")
+                logger.debug(f"IV/RV ratio: {iv_rv_ratio:.2f} (IV={iv_for_ratio:.4f}, RV={rv30:.4f}, signal: {metrics['iv_rv_signal']})")
             else:
                 metrics['iv_rv_ratio'] = None
                 metrics['iv_rv_signal'] = False
@@ -291,6 +366,22 @@ def calculate_calendar_spread_metrics(atm_ivs: Dict[str, float],
             
         metrics['recommendation'] = recommendation
         metrics['signal_count'] = signal_count
+        
+        # Add data quality information
+        if HAS_DATA_VALIDATOR and validator and data_quality_report:
+            metrics['data_quality'] = {
+                'issues_found': data_quality_report['issues_found'],
+                'fallback_used': data_quality_report['fallback_used'],
+                'recommendations': data_quality_report['recommendations']
+            }
+        
+        # Add calculation metadata for transparency
+        metrics['calculation_metadata'] = {
+            'first_dte': first_dte,
+            'available_expirations': len(dtes),
+            'iv_source': metrics.get('iv_calculation_note', 'Standard IV30 interpolation'),
+            'front_month_iv': validated_ivs.get(list(validated_ivs.keys())[0]) if validated_ivs else None
+        }
         
         logger.info(f"Calendar analysis complete: {signal_count}/3 signals, {recommendation}")
         

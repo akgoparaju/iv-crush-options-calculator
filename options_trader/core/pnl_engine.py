@@ -114,28 +114,37 @@ class PnLGrid:
         
         if not HAS_NUMPY:
             # Basic statistics without numpy
+            profit_scenarios = sum(1 for pnl in pnls if pnl > 0)
+            total_scenarios = len(pnls)
+            avg_pnl = sum(pnls) / len(pnls)
             return {
                 'max_profit': max(pnls),
                 'max_loss': min(pnls),
-                'avg_pnl': sum(pnls) / len(pnls),
-                'profit_scenarios': sum(1 for pnl in pnls if pnl > 0),
-                'total_scenarios': len(pnls)
+                'avg_pnl': avg_pnl,
+                'expected_return': avg_pnl,  # Expected return is the average P&L
+                'profit_scenarios': profit_scenarios,
+                'total_scenarios': total_scenarios,
+                'win_rate': profit_scenarios / total_scenarios if total_scenarios > 0 else 0.0,
+                'breakeven_scenarios': sum(1 for pnl in pnls if abs(pnl) < 0.01)  # Add breakeven count
             }
         
         pnls_array = np.array(pnls)
         pnl_pcts_array = np.array(pnl_pcts)
         
+        avg_pnl = float(np.mean(pnls_array))
         return {
             'max_profit': float(np.max(pnls_array)),
             'max_loss': float(np.min(pnls_array)),
-            'avg_pnl': float(np.mean(pnls_array)),
+            'avg_pnl': avg_pnl,
+            'expected_return': avg_pnl,  # Expected return is the average P&L
             'median_pnl': float(np.median(pnls_array)),
             'std_pnl': float(np.std(pnls_array)),
             'percentile_25': float(np.percentile(pnls_array, 25)),
             'percentile_75': float(np.percentile(pnls_array, 75)),
             'profit_scenarios': int(np.sum(pnls_array > 0)),
             'total_scenarios': len(pnls),
-            'win_rate': float(np.sum(pnls_array > 0) / len(pnls))
+            'win_rate': float(np.sum(pnls_array > 0) / len(pnls)),
+            'breakeven_scenarios': int(np.sum(np.abs(pnls_array) < 0.01))  # Add breakeven count
         }
     
     def get_expected_move_pnl(self, expected_move_pct: float) -> Dict[str, float]:

@@ -62,7 +62,12 @@ class TradierProvider(OptionsProvider, EarningsProvider):
         try:
             response = requests.get(url, headers=self._get_headers(), params=params, timeout=10)
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            
+            # Debug logging: Log raw JSON response
+            logger.debug(f"Tradier API Response for {endpoint}: {data}")
+            
+            return data
             
         except requests.RequestException as e:
             raise RuntimeError(f"Tradier request failed: {e}")

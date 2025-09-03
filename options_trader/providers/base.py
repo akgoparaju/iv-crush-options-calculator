@@ -32,6 +32,24 @@ class EarningsEvent:
     def is_after_market(self) -> bool:
         """True if earnings are after market close (AMC)."""
         return self.timing.upper() == "AMC"
+    
+    @property
+    def days_until(self) -> int:
+        """Calculate days until earnings date from current date."""
+        from datetime import datetime, timezone
+        
+        # Get current date (ensure timezone aware)
+        now = datetime.now(timezone.utc)
+        
+        # Ensure earnings date has timezone info
+        earnings_date = self.date
+        if earnings_date.tzinfo is None:
+            # Assume UTC if no timezone info
+            earnings_date = earnings_date.replace(tzinfo=timezone.utc)
+        
+        # Calculate the difference in days
+        delta = earnings_date.date() - now.date()
+        return delta.days
 
 
 class PriceProvider(ABC):

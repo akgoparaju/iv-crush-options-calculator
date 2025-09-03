@@ -157,12 +157,13 @@ def analyze_symbol(symbol: str, expirations_to_check: int = 1, use_demo: bool = 
                 elif not HAS_YFINANCE:
                     logger.debug("yfinance not available, skipping price history retrieval")
                 
-                # Calculate calendar spread metrics
+                # Calculate calendar spread metrics with data validation
                 calendar_metrics = calculate_calendar_spread_metrics(
                     atm_ivs=atm_ivs,
                     underlying_price=float(price),
                     straddle_price=first_straddle,
-                    price_history=price_history
+                    price_history=price_history,
+                    symbol=symbol
                 )
                 
                 result["calendar_spread_analysis"] = calendar_metrics
@@ -195,7 +196,8 @@ def analyze_symbol(symbol: str, expirations_to_check: int = 1, use_demo: bool = 
                                 "date": earnings_event.date.isoformat(),
                                 "timing": earnings_event.timing,
                                 "confirmed": earnings_event.confirmed,
-                                "source": earnings_event.source
+                                "source": earnings_event.source,
+                                "days_until": earnings_event.days_until
                             },
                             "trading_windows": {
                                 "entry_start": trading_windows.entry_start.isoformat(),
@@ -440,6 +442,9 @@ def analyze_symbol(symbol: str, expirations_to_check: int = 1, use_demo: bool = 
                                     structure_preference, account_size_for_rec
                                 )
                                 
+                                # Generate reasoning based on recommendation logic
+                                reasoning = self._generate_structure_reasoning(structure_preference, account_size_for_rec, structure_recommendation)
+                                
                                 # Get structure comparison if both structures are available
                                 structure_comparison = None
                                 if straddle_data:
@@ -447,9 +452,18 @@ def analyze_symbol(symbol: str, expirations_to_check: int = 1, use_demo: bool = 
                                     straddle_metrics = {"probability_of_profit": straddle_data["straddle_trade"]["probability_of_profit"]}
                                     structure_comparison = structure_selector.get_structure_comparison(calendar_metrics, straddle_metrics)
                                 
+                                # Store structure recommendation for CLI formatter
+                                result["trade_construction"]["structure_recommendation"] = {
+                                    "requested": structure_preference,
+                                    "recommended": structure_recommendation,
+                                    "reasoning": reasoning
+                                }
+                                
+                                # Store detailed structure selection data
                                 result["trade_construction"]["structure_selection"] = {
                                     "requested_structure": structure_preference,
                                     "recommended_structure": structure_recommendation,
+                                    "reasoning": reasoning,
                                     "structure_comparison": structure_comparison,
                                     "straddle_available": straddle_data is not None
                                 }
@@ -555,7 +569,7 @@ def analyze_symbol(symbol: str, expirations_to_check: int = 1, use_demo: bool = 
                                 "contracts": adjusted_position.adjusted_contracts,
                                 "original_contracts": position_size.contracts,
                                 "adjustment_reason": adjusted_position.adjustment_reason,
-                                "capital_required": adjusted_position.adjusted_contracts * trade_data["max_loss"],
+                                "capital_required": adjusted_position.adjusted_contracts * trade_data["max_loss"] * 100,  # Include shares per contract
                                 "capital_allocation": capital_allocation.to_dict() if hasattr(capital_allocation, 'to_dict') else {
                                     "symbol": capital_allocation.symbol,
                                     "contracts": capital_allocation.contracts,
@@ -691,6 +705,48 @@ def analyze_symbol(symbol: str, expirations_to_check: int = 1, use_demo: bool = 
     except Exception as e:
         logger.error(f"analyze_symbol failed for {symbol}: {e}")
         return {"error": f"Unexpected error in analyze_symbol: {str(e)}. Check logs for details."}
+
+
+def _generate_structure_reasoning(structure_preference: str, account_size: float, recommendation: str) -> str:
+    """
+    Generate reasoning for structure recommendation based on the logic used.
+    
+    Args:
+        structure_preference: Original user preference ("conservative", "aggressive", "moderate", "auto", etc.)
+        account_size: Account size used for recommendation
+        recommendation: Final recommendation ("calendar" or "straddle")
+        
+    Returns:
+        Human-readable reasoning string
+    """
+    preference = structure_preference.lower().strip()
+    
+    if preference == "conservative":
+        return "Calendar spread chosen for conservative approach with smoother equity curve and defined risk"
+    
+    elif preference == "aggressive":
+        return "ATM straddle chosen for aggressive approach with higher potential returns"
+    
+    elif preference == "moderate":
+        return "Calendar spread chosen as moderate default strategy balancing risk and reward"
+    
+    elif preference == "auto":
+        if account_size >= 100000:  # $100K+ accounts
+            if recommendation == "straddle":
+                return f"ATM straddle chosen for large account (${account_size:,.0f}) capable of handling unlimited risk"
+            else:
+                return f"Calendar spread chosen despite large account size for conservative risk management"
+        else:
+            return f"Calendar spread chosen for smaller account (${account_size:,.0f}) to manage risk exposure"
+    
+    elif preference in ["calendar", "calendar_spread"]:
+        return "Calendar spread chosen per user preference for limited risk strategy"
+    
+    elif preference in ["straddle", "atm_straddle", "short_straddle"]:
+        return "ATM straddle chosen per user preference for higher return potential"
+    
+    else:
+        return f"Calendar spread chosen as conservative default for unknown preference '{preference}'"
 
 
 # Backward compatibility alias
